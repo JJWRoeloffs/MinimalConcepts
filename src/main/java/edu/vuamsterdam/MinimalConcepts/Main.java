@@ -1,4 +1,4 @@
-package edu.vuamsterdam;
+package edu.vuamsterdam.MinimalConcepts;
 
 public class Main {
   public static void main(String[] args) {
