@@ -9,19 +9,20 @@ import java.util.stream.*;
 
 public class AllConceptsMinimalConcept implements MinimalConcept {
     private final OWLOntology ontology;
+    private final OWLDataFactory factory;
+    private final OWLReasoner reasoner;
 
     public AllConceptsMinimalConcept(OWLOntology ontology) {
         this.ontology = ontology;
+        this.factory = ontology.getOWLOntologyManager().getOWLDataFactory();
+
+        OWLReasonerFactory reasonerFactory = new ReasonerFactory();
+        this.reasoner = reasonerFactory.createReasoner(ontology);
+        reasoner.precomputeInferences(InferenceType.CLASS_HIERARCHY);
     }
 
     @Override
     public Optional<OWLClassExpression> getMinimalConcept(OWLClassExpression base) {
-        OWLReasonerFactory reasonerFactory = new ReasonerFactory();
-        OWLReasoner reasoner = reasonerFactory.createReasoner(ontology);
-        reasoner.precomputeInferences(InferenceType.CLASS_HIERARCHY);
-
-        OWLDataFactory factory = ontology.getOWLOntologyManager().getOWLDataFactory();
-
         return getAllConcepts(ontology, base.accept(new ClassExpressionSizeVisitor())-1).stream()
                 .sorted(Comparator.comparingInt(concept -> concept.accept(new ClassExpressionSizeVisitor())))
                 .filter(concept -> reasoner.isEntailed(factory.getOWLEquivalentClassesAxiom(base, concept)))

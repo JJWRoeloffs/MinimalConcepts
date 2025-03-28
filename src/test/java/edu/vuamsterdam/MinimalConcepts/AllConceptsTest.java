@@ -30,10 +30,11 @@ public class AllConceptsTest {
     public void testExampleMinimizerSimple() {
         OWLDataFactory factory = manager.getOWLDataFactory();
         OWLClass A1 = OWLHelpers.getClassByShortName(ontology, "A1");
-        OWLClassExpression example = factory.getOWLObjectIntersectionOf(A1, A1);
+        OWLClass A3 = OWLHelpers.getClassByShortName(ontology, "A3");
+        OWLClassExpression example = factory.getOWLObjectUnionOf(A1, A3);
 
         AllConceptsMinimalConcept minimalConceptGenerator = new AllConceptsMinimalConcept(ontology);
-        assertEquals(A1, minimalConceptGenerator.getMinimalConcept(example).orElseThrow());
+        assertEquals(A3, minimalConceptGenerator.getMinimalConcept(example).orElseThrow());
     }
 
     @Test
