@@ -21,14 +21,6 @@ public class AllConceptsMinimalConcept implements MinimalConcept {
         reasoner.precomputeInferences(InferenceType.CLASS_HIERARCHY);
     }
 
-    @Override
-    public Optional<OWLClassExpression> getMinimalConcept(OWLClassExpression base) {
-        return getAllConcepts(ontology, base.accept(new ClassExpressionSizeVisitor())-1).stream()
-                .sorted(Comparator.comparingInt(concept -> concept.accept(new ClassExpressionSizeVisitor())))
-                .filter(concept -> reasoner.isEntailed(factory.getOWLEquivalentClassesAxiom(base, concept)))
-                .findFirst();
-    }
-
     // If needed, this could be faster with a streaming interface, where new concepts aren't generated unless
     // getMinimalConcept asks for it, removing the need of generating larger concepts if a smaller one is already the minimum.
     public static Set<OWLClassExpression> getAllConcepts(OWLOntology ontology, int maxSize) {
@@ -63,5 +55,13 @@ public class AllConceptsMinimalConcept implements MinimalConcept {
         }
 
         return classes;
+    }
+
+    @Override
+    public Optional<OWLClassExpression> getMinimalConcept(OWLClassExpression base) {
+        return getAllConcepts(ontology, base.accept(new ClassExpressionSizeVisitor()) - 1).stream()
+                .sorted(Comparator.comparingInt(concept -> concept.accept(new ClassExpressionSizeVisitor())))
+                .filter(concept -> reasoner.isEntailed(factory.getOWLEquivalentClassesAxiom(base, concept)))
+                .findFirst();
     }
 }

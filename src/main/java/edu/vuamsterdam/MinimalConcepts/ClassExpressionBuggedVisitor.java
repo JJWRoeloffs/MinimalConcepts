@@ -3,7 +3,7 @@ package edu.vuamsterdam.MinimalConcepts;
 import org.semanticweb.owlapi.model.*;
 
 public class ClassExpressionBuggedVisitor implements OWLClassExpressionVisitorEx<Boolean> {
-    public ClassExpressionBuggedVisitor () {
+    public ClassExpressionBuggedVisitor() {
         super();
     }
 

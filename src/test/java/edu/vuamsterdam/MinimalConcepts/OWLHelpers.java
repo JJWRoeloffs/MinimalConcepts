@@ -12,6 +12,7 @@ public class OWLHelpers {
                 .findAny()
                 .orElseThrow();
     }
+
     public static OWLObjectProperty getPropertyByShortName(OWLOntology ontology, String name) {
         return ontology.objectPropertiesInSignature()
                 .filter(cls -> cls.getIRI().getShortForm().equals(name))

@@ -13,23 +13,6 @@ public class SubsumptionLearningMinimalConcept implements MinimalConcept {
     private final OWLDataFactory factory;
     private final double beta;
 
-    // I need them mutable, so I cannot use records, unfortunately.
-    private static class SearchNode {
-            OWLClassExpression formula;
-            int size;
-            int n;
-            double accuracy;
-            Set<OWLClassExpression> refined;
-
-            public SearchNode(OWLClassExpression formula, int size, int n, double accuracy) {
-                this.formula = formula;
-                this.size = size;
-                this.n = n;
-                this.accuracy = accuracy;
-                this.refined = new HashSet<>();
-            }
-    };
-
     public SubsumptionLearningMinimalConcept(OWLOntology ontology, double beta) {
         this.beta = beta;
         this.ontology = ontology;
@@ -49,11 +32,10 @@ public class SubsumptionLearningMinimalConcept implements MinimalConcept {
         int maxSize = base.accept(new ClassExpressionSizeVisitor());
         OWLClass top = factory.getOWLThing();
 
-        SearchNode searchTree = new SearchNode(top, 1, 0, accuracy(base, top));
-        ArrayList<SearchNode> allNodes = new ArrayList<>(Collections.singleton(searchTree));
+        ArrayList<SearchNode> nodes = new ArrayList<>(Collections.singleton(new SearchNode(top, 1, 0, accuracy(base, top))));
 
         while (true) {
-            SearchNode candidate = allNodes.stream().max(Comparator.comparingDouble(x -> accuracy(base, x.formula) - beta * x.n)).orElseThrow();
+            SearchNode candidate = nodes.stream().max(Comparator.comparingDouble(x -> accuracy(base, x.formula) - beta * x.n)).orElseThrow();
             if (reasoner.isEntailed(factory.getOWLEquivalentClassesAxiom(base, candidate.formula)))
                 return Optional.of(candidate.formula);
             if (candidate.size >= maxSize)
@@ -67,7 +49,7 @@ public class SubsumptionLearningMinimalConcept implements MinimalConcept {
                     .map(formula -> new SearchNode(formula, formula.accept(new ClassExpressionSizeVisitor()), candidate.n, accuracy(base, formula)))
                     .collect(Collectors.toSet());
 
-            allNodes.addAll(newSuccessors);
+            nodes.addAll(newSuccessors);
             candidate.n += 1;
         }
     }
@@ -82,7 +64,7 @@ public class SubsumptionLearningMinimalConcept implements MinimalConcept {
         if (target.isOWLNothing())
             return new HashSet<>();
         if (target.isOWLThing())
-            return rhoTop(context);
+            return rhoTop();
         if (target instanceof OWLClass)
             return reasoner.getSubClasses(target, true)
                     .nodes()
@@ -144,17 +126,17 @@ public class SubsumptionLearningMinimalConcept implements MinimalConcept {
         throw new IllegalStateException();
     }
 
-    private Set<OWLClassExpression> rhoTop(OWLClassExpression context) {
+    private Set<OWLClassExpression> rhoTop() {
         Set<OWLClassExpression> bases = reasoner.getSubClasses(factory.getOWLThing(), true)
                 .nodes()
                 .map(node -> smallestItem(node.entities()))
                 .collect(Collectors.toSet());
 
         Set<OWLClassExpression> botClasses = reasoner.getSuperClasses(factory.getOWLNothing(), true)
-              .nodes()
-              .map(node -> smallestItem(node.entities()))
-              .map(factory::getOWLObjectComplementOf)
-              .collect(Collectors.toSet());
+                .nodes()
+                .map(node -> smallestItem(node.entities()))
+                .map(factory::getOWLObjectComplementOf)
+                .collect(Collectors.toSet());
         bases.addAll(botClasses);
 
         Set<OWLClassExpression> existTop = ontology.objectPropertiesInSignature()
@@ -171,7 +153,6 @@ public class SubsumptionLearningMinimalConcept implements MinimalConcept {
         // Is this really viable for larger ontologies?
         Set<OWLClassExpression> ret = new HashSet<>();
         Set<Set<OWLClassExpression>> powerSet = Helpers.powerSet(bases);
-        powerSet.remove(new HashSet<OWLClassExpression>());
 
         for (Set<OWLClassExpression> subset : powerSet) {
             if (subset.size() == 1)
@@ -195,21 +176,33 @@ public class SubsumptionLearningMinimalConcept implements MinimalConcept {
         Set<OWLClass> targetSuperClasses = reasoner.getSuperClasses(target, false).getFlattened();
         Set<OWLClass> foundSuperClasses = reasoner.getSuperClasses(found, false).getFlattened();
 
-        if (targetSuperClasses.isEmpty())
-            throw new RuntimeException();
+        long falseNegatives = targetSuperClasses.stream()
+                .filter(c -> !foundSuperClasses.contains(c))
+                .count();
+        long falsePositives = foundSuperClasses.stream()
+                .filter(c -> !targetSuperClasses.contains(c))
+                .count();
+        long all = Stream.concat(targetSuperClasses.stream(), foundSuperClasses.stream())
+                .distinct()
+                .count();
 
-        // Should be in superclasses, isn't
-        Set<OWLClass> falseNegativesSuper = new HashSet<>(targetSuperClasses);
-        falseNegativesSuper.removeAll(foundSuperClasses);
+        return 1 - (double) (falseNegatives + falsePositives) / all;
+    }
 
-        // Shouldn't be in superclasses, is
-        Set<OWLClass> falsePositivesSuper = new HashSet<>(foundSuperClasses);
-        falsePositivesSuper.removeAll(targetSuperClasses);
+    // I need them mutable, so I cannot use records, unfortunately.
+    private static class SearchNode {
+        OWLClassExpression formula;
+        int size;
+        int n;
+        double accuracy;
+        Set<OWLClassExpression> refined;
 
-        // All seen superclasses
-        Set<OWLClass> allSuper = new HashSet<>(foundSuperClasses);
-        allSuper.addAll(targetSuperClasses);
-
-        return 1 - ((double) falseNegativesSuper.size() + (double) falsePositivesSuper.size()) / allSuper.size();
+        public SearchNode(OWLClassExpression formula, int size, int n, double accuracy) {
+            this.formula = formula;
+            this.size = size;
+            this.n = n;
+            this.accuracy = accuracy;
+            this.refined = new HashSet<>();
+        }
     }
 }
