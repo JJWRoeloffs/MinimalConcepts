@@ -31,4 +31,25 @@ public class Helpers {
         }
         return sets;
     }
+
+    public static <T> Set<Set<T>> powerSetOfSize(Set<T> originalSet, int n) {
+        Set<Set<T>> res = new HashSet<>();
+        generateSubsets(new ArrayList<>(originalSet), 0, n, new HashSet<>(), res);
+        return res;
+    }
+
+    private static <T> void generateSubsets(List<T> list, int idx, int n, Set<T> current, Set<Set<T>> res) {
+        if (current.size() == n) {
+            res.add(new HashSet<>(current));
+            return;
+        }
+        if (idx == list.size()) {
+            return;
+        }
+        current.add(list.get(idx));
+        generateSubsets(list, idx + 1, n, current, res);
+
+        current.remove(list.get(idx));
+        generateSubsets(list, idx + 1, n, current, res);
+    }
 }

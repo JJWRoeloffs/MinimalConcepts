@@ -47,4 +47,17 @@ public class HelpersTest {
 
         assertEquals(8, gotten.size());
     }
+
+    @Test
+    public void testPowerSetOfSizeThree() {
+        HashSet<String> test = new HashSet<>();
+        Collections.addAll(test, "A1", "A2", "A3");
+
+        Set<Set<String>> gotten1 = Helpers.powerSetOfSize(test, 1);
+        assertEquals(3, gotten1.size());
+        Set<Set<String>> gotten2 = Helpers.powerSetOfSize(test, 2);
+        assertEquals(3, gotten2.size());
+        Set<Set<String>> gotten3 = Helpers.powerSetOfSize(test, 3);
+        assertEquals(1, gotten3.size());
+    }
 }

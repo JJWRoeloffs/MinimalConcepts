@@ -12,6 +12,7 @@ public class SubsumptionLearningMinimalConcept implements MinimalConcept {
     private final OWLReasoner reasoner;
     private final OWLDataFactory factory;
     private final double beta;
+    private Map<Pair<OWLClassExpression>, Double> accuracies;
 
     public SubsumptionLearningMinimalConcept(OWLOntology ontology, double beta) {
         this.beta = beta;
@@ -21,6 +22,8 @@ public class SubsumptionLearningMinimalConcept implements MinimalConcept {
         OWLReasonerFactory reasonerFactory = new ReasonerFactory();
         this.reasoner = reasonerFactory.createReasoner(ontology);
         reasoner.precomputeInferences(InferenceType.CLASS_HIERARCHY);
+
+        this.accuracies = new HashMap<>();
     }
 
     private static <T extends OWLClassExpression> T smallestItem(Stream<T> entities) {
@@ -32,21 +35,21 @@ public class SubsumptionLearningMinimalConcept implements MinimalConcept {
         int maxSize = base.accept(new ClassExpressionSizeVisitor());
         OWLClass top = factory.getOWLThing();
 
-        ArrayList<SearchNode> nodes = new ArrayList<>(Collections.singleton(new SearchNode(top, 1, 0, accuracy(base, top))));
+        ArrayList<SearchNode> nodes = new ArrayList<>(Collections.singleton(new SearchNode(top, 1, 0, accuracyCashed(base, top))));
 
         while (true) {
-            SearchNode candidate = nodes.stream().max(Comparator.comparingDouble(x -> accuracy(base, x.formula) - beta * x.n)).orElseThrow();
+            SearchNode candidate = nodes.stream().max(Comparator.comparingDouble(x -> accuracyCashed(base, x.formula) - beta * x.n)).orElseThrow();
             if (reasoner.isEntailed(factory.getOWLEquivalentClassesAxiom(base, candidate.formula)))
                 return Optional.of(candidate.formula);
             if (candidate.size >= maxSize)
                 return Optional.empty();
-            if (candidate.refined.isEmpty())
-                candidate.refined = rho(top, candidate.formula);
+
+            candidate.refined.addAll(rho(top, candidate.formula, candidate.n + 1));
 
             Set<SearchNode> newSuccessors = candidate.refined.stream()
                     .filter(formula -> !formula.isOWLNothing())
                     .filter(formula -> formula.accept(new ClassExpressionSizeVisitor()) == candidate.n + 1)
-                    .map(formula -> new SearchNode(formula, formula.accept(new ClassExpressionSizeVisitor()), candidate.n, accuracy(base, formula)))
+                    .map(formula -> new SearchNode(formula, formula.accept(new ClassExpressionSizeVisitor()), candidate.n, accuracyCashed(base, formula)))
                     .collect(Collectors.toSet());
 
             nodes.addAll(newSuccessors);
@@ -54,17 +57,18 @@ public class SubsumptionLearningMinimalConcept implements MinimalConcept {
         }
     }
 
-    private Set<OWLClassExpression> rho(OWLClassExpression context, OWLClassExpression target) {
-        Set<OWLClassExpression> ret = rhoPrime(context, target);
+    private Set<OWLClassExpression> rho(OWLClassExpression context, OWLClassExpression target, int targetSize) {
+        Set<OWLClassExpression> ret = rhoPrime(context, target, targetSize);
         Collections.addAll(ret, factory.getOWLNothing(), factory.getOWLObjectIntersectionOf(target, factory.getOWLThing()));
         return ret.stream().filter(func -> !func.accept(new ClassExpressionBuggedVisitor())).collect(Collectors.toSet());
     }
 
-    private Set<OWLClassExpression> rhoPrime(OWLClassExpression context, OWLClassExpression target) {
+    private Set<OWLClassExpression> rhoPrime(OWLClassExpression context, OWLClassExpression target, int targetSize) {
+        final int currentSize = target.accept(new ClassExpressionSizeVisitor());
         if (target.isOWLNothing())
             return new HashSet<>();
         if (target.isOWLThing())
-            return rhoTop();
+            return rhoTop(targetSize);
         if (target instanceof OWLClass)
             return reasoner.getSubClasses(target, true)
                     .nodes()
@@ -81,7 +85,8 @@ public class SubsumptionLearningMinimalConcept implements MinimalConcept {
         if (target instanceof OWLObjectSomeValuesFrom) {
             Set<OWLClassExpression> concepts = rho(
                     smallestItem(reasoner.getObjectPropertyRanges(((OWLObjectSomeValuesFrom) target).getProperty(), true).entities()),
-                    ((OWLObjectSomeValuesFrom) target).getFiller());
+                    ((OWLObjectSomeValuesFrom) target).getFiller(),
+                    targetSize - 1);
             return concepts.stream()
                     .map(x -> factory.getOWLObjectSomeValuesFrom(((OWLObjectSomeValuesFrom) target).getProperty(), x))
                     .collect(Collectors.toSet());
@@ -89,7 +94,8 @@ public class SubsumptionLearningMinimalConcept implements MinimalConcept {
         if (target instanceof OWLObjectAllValuesFrom) {
             Set<OWLClassExpression> concepts = rho(
                     smallestItem(reasoner.getObjectPropertyRanges(((OWLObjectAllValuesFrom) target).getProperty(), true).entities()),
-                    ((OWLObjectAllValuesFrom) target).getFiller());
+                    ((OWLObjectAllValuesFrom) target).getFiller(),
+                    targetSize -1);
             return concepts.stream()
                     .map(x -> factory.getOWLObjectAllValuesFrom(((OWLObjectAllValuesFrom) target).getProperty(), x))
                     .collect(Collectors.toSet());
@@ -100,7 +106,8 @@ public class SubsumptionLearningMinimalConcept implements MinimalConcept {
 
             for (int i = 0; i < operands.size(); i++) {
                 final int idx = i;
-                Set<OWLClassExpression> newItems = rho(context, operands.get(i))
+                final int newTargetSize = (targetSize - currentSize) + operands.get(idx).accept(new ClassExpressionSizeVisitor());
+                Set<OWLClassExpression> newItems = rho(context, operands.get(idx), newTargetSize)
                         .stream()
                         .map(x -> factory.getOWLObjectIntersectionOf(Helpers.replaceElement(operands, idx, x)))
                         .collect(Collectors.toSet());
@@ -114,7 +121,8 @@ public class SubsumptionLearningMinimalConcept implements MinimalConcept {
 
             for (int i = 0; i < operands.size(); i++) {
                 final int idx = i;
-                Set<OWLClassExpression> newItems = rho(context, operands.get(i))
+                final int newTargetSize = (targetSize - currentSize) + operands.get(idx).accept(new ClassExpressionSizeVisitor());
+                Set<OWLClassExpression> newItems = rho(context, operands.get(idx), newTargetSize)
                         .stream()
                         .map(x -> factory.getOWLObjectUnionOf(Helpers.replaceElement(operands, idx, x)))
                         .collect(Collectors.toSet());
@@ -126,7 +134,7 @@ public class SubsumptionLearningMinimalConcept implements MinimalConcept {
         throw new IllegalStateException();
     }
 
-    private Set<OWLClassExpression> rhoTop() {
+    private Set<OWLClassExpression> rhoTop(int targetSize) {
         Set<OWLClassExpression> bases = reasoner.getSubClasses(factory.getOWLThing(), true)
                 .nodes()
                 .map(node -> smallestItem(node.entities()))
@@ -149,10 +157,8 @@ public class SubsumptionLearningMinimalConcept implements MinimalConcept {
                 .collect(Collectors.toSet());
         bases.addAll(forallTop);
 
-        // This will grow massively with powerSets.
-        // Is this really viable for larger ontologies?
         Set<OWLClassExpression> ret = new HashSet<>();
-        Set<Set<OWLClassExpression>> powerSet = Helpers.powerSet(bases);
+        Set<Set<OWLClassExpression>> powerSet = Helpers.powerSetOfSize(bases, targetSize);
 
         for (Set<OWLClassExpression> subset : powerSet) {
             if (subset.size() == 1)
@@ -164,7 +170,13 @@ public class SubsumptionLearningMinimalConcept implements MinimalConcept {
         return ret;
     }
 
-    private double accuracy(OWLClassExpression target, OWLClassExpression found) {
+    private double accuracyCashed(OWLClassExpression target, OWLClassExpression found) {
+        return accuracies.computeIfAbsent(new Pair<>(target, found), this::accuracy);
+    }
+
+    private double accuracy(Pair<OWLClassExpression> pair) {
+        OWLClassExpression target = pair.getFirst();
+        OWLClassExpression found = pair.getSecond();
         // For now, I return posinf and neginf to indicate that either we have our value,
         // or the branch is dead to us. I might do this differently if needed for something,
         // But I otherwise do not see a reason to overcomplicate things.
