@@ -1,0 +1,3 @@
+[submodule "pizza-ontology"]
+	path = pizza-ontology
+	url = https://github.com/owlcs/pizza-ontology.git
