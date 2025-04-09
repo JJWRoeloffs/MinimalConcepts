@@ -12,7 +12,8 @@ public class SubsumptionLearningMinimalConcept implements MinimalConcept {
     private final OWLReasoner reasoner;
     private final OWLDataFactory factory;
     private final double beta;
-    private Map<Pair<OWLClassExpression>, Double> accuracies;
+    private final Map<Pair<OWLClassExpression>, Double> accuracies;
+    private final Map<Integer, Set<OWLClassExpression>> rhoTops;
 
     public SubsumptionLearningMinimalConcept(OWLOntology ontology, double beta) {
         this.beta = beta;
@@ -24,6 +25,7 @@ public class SubsumptionLearningMinimalConcept implements MinimalConcept {
         reasoner.precomputeInferences(InferenceType.CLASS_HIERARCHY);
 
         this.accuracies = new HashMap<>();
+        this.rhoTops = new HashMap<>();
     }
 
     private static <T extends OWLClassExpression> T smallestItem(Stream<T> entities) {
@@ -68,7 +70,7 @@ public class SubsumptionLearningMinimalConcept implements MinimalConcept {
         if (target.isOWLNothing())
             return new HashSet<>();
         if (target.isOWLThing())
-            return rhoTop(targetSize);
+            return rhoTopCashed(targetSize);
         if (target instanceof OWLClass)
             return reasoner.getSubClasses(target, true)
                     .nodes()
@@ -134,6 +136,10 @@ public class SubsumptionLearningMinimalConcept implements MinimalConcept {
         throw new IllegalStateException();
     }
 
+    private Set<OWLClassExpression> rhoTopCashed(int targetSize) {
+        return rhoTops.computeIfAbsent(targetSize, this::rhoTop);
+    }
+
     private Set<OWLClassExpression> rhoTop(int targetSize) {
         Set<OWLClassExpression> bases = reasoner.getSubClasses(factory.getOWLThing(), true)
                 .nodes()
@@ -171,12 +177,10 @@ public class SubsumptionLearningMinimalConcept implements MinimalConcept {
     }
 
     private double accuracyCashed(OWLClassExpression target, OWLClassExpression found) {
-        return accuracies.computeIfAbsent(new Pair<>(target, found), this::accuracy);
+        return accuracies.computeIfAbsent(new Pair<>(target, found), pair -> accuracy(pair.getFirst(), pair.getSecond()));
     }
 
-    private double accuracy(Pair<OWLClassExpression> pair) {
-        OWLClassExpression target = pair.getFirst();
-        OWLClassExpression found = pair.getSecond();
+    private double accuracy(OWLClassExpression target, OWLClassExpression found) {
         // For now, I return posinf and neginf to indicate that either we have our value,
         // or the branch is dead to us. I might do this differently if needed for something,
         // But I otherwise do not see a reason to overcomplicate things.
