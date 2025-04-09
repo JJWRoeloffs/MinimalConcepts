@@ -192,17 +192,20 @@ public class SubsumptionLearningMinimalConcept implements MinimalConcept {
         Set<OWLClass> targetSuperClasses = reasoner.getSuperClasses(target, false).getFlattened();
         Set<OWLClass> foundSuperClasses = reasoner.getSuperClasses(found, false).getFlattened();
 
-        long falseNegatives = targetSuperClasses.stream()
-                .filter(c -> !foundSuperClasses.contains(c))
-                .count();
         long falsePositives = foundSuperClasses.stream()
                 .filter(c -> !targetSuperClasses.contains(c))
+                .count();
+        if (falsePositives >= 1)
+            return Double.NEGATIVE_INFINITY;
+
+        long falseNegatives = targetSuperClasses.stream()
+                .filter(c -> !foundSuperClasses.contains(c))
                 .count();
         long all = Stream.concat(targetSuperClasses.stream(), foundSuperClasses.stream())
                 .distinct()
                 .count();
 
-        return 1 - (double) (falseNegatives + falsePositives) / all;
+        return 1 - (double) falseNegatives / all;
     }
 
     // I need them mutable, so I cannot use records, unfortunately.
