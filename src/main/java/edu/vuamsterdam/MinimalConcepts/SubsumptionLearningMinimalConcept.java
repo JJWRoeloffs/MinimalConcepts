@@ -38,23 +38,36 @@ public class SubsumptionLearningMinimalConcept implements MinimalConcept {
         OWLClass top = factory.getOWLThing();
 
         ArrayList<SearchNode> nodes = new ArrayList<>(Collections.singleton(new SearchNode(top, 1, 0, accuracyCashed(base, top))));
+        HashSet<OWLClassExpression> nodeFormulas = new HashSet<>(Collections.singleton(top));
 
         while (true) {
-            SearchNode candidate = nodes.stream().max(Comparator.comparingDouble(x -> accuracyCashed(base, x.formula) - beta * x.n)).orElseThrow();
+            SearchNode candidate = nodes.stream().max(Comparator.comparingDouble(x -> x.accuracy - beta * x.n)).orElseThrow();
+//            System.out.println(candidate.formula + "   " + candidate.n + "     " + candidate.accuracy);
+            if (candidate.accuracy == Double.NEGATIVE_INFINITY)
+                return Optional.empty();
             if (reasoner.isEntailed(factory.getOWLEquivalentClassesAxiom(base, candidate.formula)))
                 return Optional.of(candidate.formula);
             if (candidate.size >= maxSize)
                 return Optional.empty();
+            if (candidate.n > maxSize) {
+                candidate.accuracy = Double.NEGATIVE_INFINITY;
+                continue;
+            }
 
             candidate.refined.addAll(rho(top, candidate.formula, base, candidate.n + 1));
 
-            Set<SearchNode> newSuccessors = candidate.refined.stream()
+            Set<OWLClassExpression> newSuccessors = candidate.refined.stream()
                     .filter(formula -> !formula.isOWLNothing())
-                    .filter(formula -> formula.accept(new ClassExpressionSizeVisitor()) == candidate.n + 1)
+                    .filter(formula -> formula.accept(new ClassExpressionSizeVisitor()) <= candidate.n + 1)
+                    .filter(formula -> !nodeFormulas.contains(formula))
+                    .collect(Collectors.toSet());
+            nodeFormulas.addAll(newSuccessors);
+
+            Set<SearchNode> newNodes = newSuccessors.stream()
                     .map(formula -> new SearchNode(formula, formula.accept(new ClassExpressionSizeVisitor()), candidate.n, accuracyCashed(base, formula)))
                     .collect(Collectors.toSet());
 
-            nodes.addAll(newSuccessors);
+            nodes.addAll(newNodes);
             candidate.n += 1;
         }
     }
