@@ -28,12 +28,20 @@ public class Main {
     private static void minimizeExpression(OWLClassExpression expression, OWLOntology ontology) {
         System.out.println("---------------------------------------");
         System.out.println("Minimizing expression: " + expression);
-        System.out.println("Original size: " + expression.accept(new ClassExpressionSizeVisitor()));
+        try {
+            int origSize = expression.accept(new ClassExpressionSizeVisitor());
+            System.out.println("Original size: " + origSize);
 
-        SubsumptionLearningMinimalConcept minimalConceptGenerator = new SubsumptionLearningMinimalConcept(ontology, 0.5);
-        Optional<OWLClassExpression> newExpression = minimalConceptGenerator.getMinimalConcept(expression);
-        newExpression.ifPresent(expr -> System.out.println(
-                "Minimized expression to: " + expr + "\nWith size: " + expr.accept(new ClassExpressionSizeVisitor())
-        ));
+            if (origSize < 5) {
+                SubsumptionLearningMinimalConcept minimalConceptGenerator = new SubsumptionLearningMinimalConcept(ontology, 0.02);
+                Optional<OWLClassExpression> newExpression = minimalConceptGenerator.getMinimalConcept(expression);
+                newExpression.ifPresent(expr -> System.out.println(
+                        "Minimized expression to: " + expr + "\nWith size: " + expr.accept(new ClassExpressionSizeVisitor())
+                ));
+                System.out.println("---------------------------------------");
+            }
+        } catch (RuntimeException e) {
+            e.printStackTrace();
+        }
     }
 }
