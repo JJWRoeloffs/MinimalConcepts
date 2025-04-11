@@ -49,10 +49,6 @@ public class SubsumptionLearningMinimalConcept implements MinimalConcept {
                 return Optional.of(candidate.formula);
             if (candidate.size >= maxSize)
                 return Optional.empty();
-            if (candidate.n > maxSize) {
-                candidate.accuracy = Double.NEGATIVE_INFINITY;
-                continue;
-            }
 
             candidate.refined.addAll(rho(top, candidate.formula, base, candidate.n + 1));
 
@@ -198,11 +194,9 @@ public class SubsumptionLearningMinimalConcept implements MinimalConcept {
     }
 
     private double accuracy(OWLClassExpression target, OWLClassExpression found) {
-        // For now, I return posinf and neginf to indicate that either we have our value,
-        // or the branch is dead to us. I might do this differently if needed for something,
+        // For now, I return posinf to indicate that either we have our value,
+        // I might do this differently if needed for something,
         // But I otherwise do not see a reason to overcomplicate things.
-        if (found.accept(new ClassExpressionSizeVisitor()) >= target.accept(new ClassExpressionSizeVisitor()))
-            return Double.NEGATIVE_INFINITY;
         if (reasoner.isEntailed(factory.getOWLEquivalentClassesAxiom(target, found)))
             return Double.POSITIVE_INFINITY;
 
