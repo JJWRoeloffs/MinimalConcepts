@@ -1,6 +1,7 @@
 package edu.vuamsterdam.MinimalConcepts;
 
 import java.util.*;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.*;
 
 import org.semanticweb.HermiT.ReasonerFactory;
@@ -20,6 +21,7 @@ public class SubsumptionLearningMinimalConcept implements MinimalConcept {
         this.ontology = ontology;
         this.factory = ontology.getOWLOntologyManager().getOWLDataFactory();
 
+
         OWLReasonerFactory reasonerFactory = new ReasonerFactory();
         this.reasoner = reasonerFactory.createReasoner(ontology);
         reasoner.precomputeInferences(InferenceType.CLASS_HIERARCHY);
@@ -37,17 +39,20 @@ public class SubsumptionLearningMinimalConcept implements MinimalConcept {
         int maxSize = base.accept(new ClassExpressionSizeVisitor());
         OWLClass top = factory.getOWLThing();
 
-        ArrayList<SearchNode> nodes = new ArrayList<>(Collections.singleton(new SearchNode(top, 1, 0, accuracyCashed(base, top))));
+        // Current accuracy always gives top accuracy 0. This might change, coupling! beware!
+        ArrayList<SearchNode> nodes = new ArrayList<>(Collections.singleton(new SearchNode(top, 1, 0, 0)));
         HashSet<OWLClassExpression> nodeFormulas = new HashSet<>(Collections.singleton(top));
 
         while (true) {
             SearchNode candidate = nodes.stream().max(Comparator.comparingDouble(x -> x.accuracy - beta * x.n)).orElseThrow();
-//            System.out.println(candidate.formula + "   " + candidate.n + "     " + candidate.accuracy);
+            System.out.println(candidate.formula + "   " + candidate.n + "     " + candidate.accuracy);
             if (candidate.accuracy == Double.NEGATIVE_INFINITY)
                 return Optional.empty();
             if (reasoner.isEntailed(factory.getOWLEquivalentClassesAxiom(base, candidate.formula)))
                 return Optional.of(candidate.formula);
             if (candidate.size >= maxSize)
+                return Optional.empty();
+            if (candidate.n > maxSize)
                 return Optional.empty();
 
             candidate.refined.addAll(rho(top, candidate.formula, base, candidate.n + 1));
@@ -59,8 +64,25 @@ public class SubsumptionLearningMinimalConcept implements MinimalConcept {
                     .collect(Collectors.toSet());
             nodeFormulas.addAll(newSuccessors);
 
-            Set<SearchNode> newNodes = newSuccessors.stream()
-                    .map(formula -> new SearchNode(formula, formula.accept(new ClassExpressionSizeVisitor()), candidate.n, accuracyCashed(base, formula)))
+            OWLOntology copiedOntology = Helpers.copyOntology(ontology);
+            String baseIRI = "tempFormula#";
+
+            // There seriously isn't a way to enumerate streams in java still?
+            AtomicInteger i = new AtomicInteger(0);
+            OWLOntologyManager manager = ontology.getOWLOntologyManager();
+            List<Pair<OWLClass, OWLClassExpression>> newClasses = newSuccessors.stream()
+                    .map(expr -> {
+                        OWLClass cls = factory.getOWLClass(IRI.create(baseIRI + i.getAndIncrement()));
+                        OWLEquivalentClassesAxiom ax = factory.getOWLEquivalentClassesAxiom(cls, expr);
+                        manager.addAxiom(copiedOntology, ax);
+                        return new Pair<>(cls, expr);
+                    })
+                    .toList();
+
+            reasoner.precomputeInferences(InferenceType.CLASS_HIERARCHY);
+
+            Set<SearchNode> newNodes = newClasses.stream()
+                    .map(pair -> new SearchNode(pair.second(), pair.second().accept(new ClassExpressionSizeVisitor()), candidate.n, accuracyCashed(base, pair)))
                     .collect(Collectors.toSet());
 
             nodes.addAll(newNodes);
@@ -185,15 +207,15 @@ public class SubsumptionLearningMinimalConcept implements MinimalConcept {
             else if (!subset.isEmpty())
                 ret.add(factory.getOWLObjectUnionOf(subset));
         }
-
         return ret;
     }
 
-    private double accuracyCashed(OWLClassExpression target, OWLClassExpression found) {
-        return accuracies.computeIfAbsent(new Pair<>(target, found), pair -> accuracy(pair.first(), pair.second()));
+    private double accuracyCashed(OWLClassExpression target, Pair<OWLClass, OWLClassExpression> found) {
+        return accuracies.computeIfAbsent(new Pair<>(target, found.second()),
+                k -> accuracy(target, found.first()));
     }
 
-    private double accuracy(OWLClassExpression target, OWLClassExpression found) {
+    private double accuracy(OWLClassExpression target, OWLClass found) {
         // For now, I return posinf to indicate that either we have our value,
         // I might do this differently if needed for something,
         // But I otherwise do not see a reason to overcomplicate things.

@@ -1,6 +1,7 @@
 package edu.vuamsterdam.MinimalConcepts;
 
 import java.util.*;
+import org.semanticweb.owlapi.model.*;
 
 public class Helpers {
     // This is why I'd do it in scala.
@@ -9,6 +10,15 @@ public class Helpers {
         List<T> ret = new ArrayList<>(original);
         ret.set(i, target);
         return ret;
+    }
+
+    public static OWLOntology copyOntology(OWLOntology ontology) {
+        try {
+            OWLOntologyManager manager = ontology.getOWLOntologyManager();
+            return manager.createOntology(ontology.getAxioms());
+        } catch (OWLOntologyCreationException e) {
+            throw new RuntimeException("Failed to copy ontology", e);
+        }
     }
 
     // Another one that is in many standard libraries,
