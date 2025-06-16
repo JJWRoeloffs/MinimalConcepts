@@ -8,18 +8,39 @@ import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.*;
 
-public class TreeEquivalenceMinimalConcept implements MinimalConcept{
-    private final OWLOntology ontology;
+public class TreeEquivalenceMinimalConcept implements MinimalConcept {
+    private final boolean useStarModule;
+    private final OWLOntology actualOntology;
     private final OWLOntologyManager manager;
     private final OWLDataFactory factory;
+    private OWLOntology ontology;
+    private Set<OWLEquivalentClassesAxiom> axiomsToRemove;
 
-    public TreeEquivalenceMinimalConcept(OWLOntology ontology) {
+    public TreeEquivalenceMinimalConcept(OWLOntology ontology, boolean useStarModule) {
+        this.useStarModule = useStarModule;
         this.ontology = ontology;
+        this.actualOntology = ontology;
         this.manager = ontology.getOWLOntologyManager();
         this.factory = manager.getOWLDataFactory();
+        this.axiomsToRemove = new HashSet<>();
     }
+
     @Override
     public Optional<OWLClassExpression> getMinimalConcept(OWLClassExpression base) {
+        if (useStarModule) {
+            this.ontology = StarModuleExtractor.extractStarModule(actualOntology, base);
+        }
+        axiomsToRemove = new HashSet<>();
+
+        Optional<OWLClassExpression> ret = getMinimalConceptInner(base);
+
+        manager.removeAxioms(ontology, axiomsToRemove);
+        ontology = actualOntology;
+        axiomsToRemove = new HashSet<>();
+        return ret;
+    }
+
+    private Optional<OWLClassExpression> getMinimalConceptInner(OWLClassExpression base) {
         Set<OWLClass> expressionset = ontology.classesInSignature().collect(Collectors.toSet());
 
         System.out.println("Generating replacements");
@@ -52,7 +73,7 @@ public class TreeEquivalenceMinimalConcept implements MinimalConcept{
         final Node<OWLClass> equivalentClasses = reasoner.getEquivalentClasses(baseClass);
         System.out.println(equivalentClasses);
 
-        Optional<OWLClassExpression> ret =  newClasses.stream()
+        Optional<OWLClassExpression> ret = newClasses.stream()
                 .sorted(Comparator.comparingInt(p -> p.second().accept(new ClassExpressionSizeVisitor())))
                 .filter(p -> equivalentClasses.contains(p.first()))
                 .map(Pair::second)

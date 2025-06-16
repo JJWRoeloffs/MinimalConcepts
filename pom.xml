@@ -21,6 +21,11 @@
         </dependency>
         <dependency>
             <groupId>net.sourceforge.owlapi</groupId>
+            <artifactId>owlapi-modularity</artifactId>
+            <version>3.3</version>
+        </dependency>
+        <dependency>
+            <groupId>net.sourceforge.owlapi</groupId>
             <artifactId>owlapi-apibinding</artifactId>
             <version>5.5.1</version>
         </dependency>

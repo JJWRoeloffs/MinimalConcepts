@@ -9,19 +9,24 @@ import org.semanticweb.owlapi.model.*;
 import org.semanticweb.owlapi.reasoner.*;
 
 public class SubsumptionLearningMinimalConcept implements MinimalConcept {
-    private final OWLOntology ontology;
+    private final boolean useStarModule;
+    private final boolean disjuncts;
+    private final OWLOntology actualOntology;
     private final OWLReasoner reasoner;
     private final OWLDataFactory factory;
     private final OWLOntologyManager manager;
     private final double beta;
     private final Map<Pair<OWLClassExpression, OWLClassExpression>, Double> accuracies;
     private final Map<Pair<Integer, OWLClassExpression>, Set<OWLClassExpression>> rhoTops;
-    private final boolean disjuncts;
+    private OWLOntology ontology;
+    private Set<OWLEquivalentClassesAxiom> axiomsToRemove;
 
-    public SubsumptionLearningMinimalConcept(OWLOntology ontology, double beta, boolean disjuncts) {
+    public SubsumptionLearningMinimalConcept(OWLOntology ontology, double beta, boolean disjuncts, boolean useStarModule) {
         this.beta = beta;
         this.disjuncts = disjuncts;
+        this.useStarModule = useStarModule;
         this.ontology = ontology;
+        this.actualOntology = ontology;
         this.manager = ontology.getOWLOntologyManager();
         this.factory = manager.getOWLDataFactory();
 
@@ -34,6 +39,7 @@ public class SubsumptionLearningMinimalConcept implements MinimalConcept {
 
         this.accuracies = new HashMap<>();
         this.rhoTops = new HashMap<>();
+        this.axiomsToRemove = new HashSet<>();
     }
 
     private static <T extends OWLClassExpression> T smallestItem(Stream<T> entities) {
@@ -42,6 +48,20 @@ public class SubsumptionLearningMinimalConcept implements MinimalConcept {
 
     @Override
     public Optional<OWLClassExpression> getMinimalConcept(OWLClassExpression base) {
+        if (useStarModule) {
+            this.ontology = StarModuleExtractor.extractStarModule(actualOntology, base);
+        }
+        axiomsToRemove = new HashSet<>();
+
+        Optional<OWLClassExpression> ret = getMinimalConceptInner(base);
+
+        manager.removeAxioms(ontology, axiomsToRemove);
+        ontology = actualOntology;
+        axiomsToRemove = new HashSet<>();
+        return ret;
+    }
+
+    private Optional<OWLClassExpression> getMinimalConceptInner(OWLClassExpression base) {
         int maxSize = base.accept(new ClassExpressionSizeVisitor());
         OWLClass top = factory.getOWLThing();
 
@@ -141,7 +161,7 @@ public class SubsumptionLearningMinimalConcept implements MinimalConcept {
                     smallestItem(reasoner.getObjectPropertyRanges(((OWLObjectAllValuesFrom) target).getProperty(), true).entities()),
                     ((OWLObjectAllValuesFrom) target).getFiller(),
                     base,
-                    targetSize -1);
+                    targetSize - 1);
             return concepts.stream()
                     .map(x -> factory.getOWLObjectAllValuesFrom(((OWLObjectAllValuesFrom) target).getProperty(), x))
                     .collect(Collectors.toSet());
@@ -181,7 +201,7 @@ public class SubsumptionLearningMinimalConcept implements MinimalConcept {
     }
 
     private Set<OWLClassExpression> rhoTopCashed(int targetSize, OWLClassExpression base) {
-        return rhoTops.computeIfAbsent(new Pair<>(targetSize,  base), pair -> rhoTop(pair.first(), pair.second()));
+        return rhoTops.computeIfAbsent(new Pair<>(targetSize, base), pair -> rhoTop(pair.first(), pair.second()));
     }
 
     private Set<OWLClassExpression> rhoTop(int targetSize, OWLClassExpression base) {
