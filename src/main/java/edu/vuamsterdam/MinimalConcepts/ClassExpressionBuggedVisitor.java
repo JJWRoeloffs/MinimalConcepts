@@ -28,18 +28,17 @@ public class ClassExpressionBuggedVisitor implements OWLClassExpressionVisitorEx
 
     @Override
     public Boolean visit(OWLObjectComplementOf ce) {
-        // complement is not in scope of paper, but I'll define it as one larger.
         return ce.getOperand().accept(this);
     }
 
     @Override
     public Boolean visit(OWLObjectSomeValuesFrom ce) {
-        return ce.getFiller().accept(this);
+        return ce.getFiller().accept(this) && ce.getProperty().isObjectPropertyExpression();
     }
 
     @Override
     public Boolean visit(OWLObjectAllValuesFrom ce) {
-        return ce.getFiller().accept(this);
+        return ce.getFiller().accept(this) && ce.getProperty().isObjectPropertyExpression();
     }
 
     @Override
