@@ -4,7 +4,6 @@ import org.semanticweb.owlapi.apibinding.OWLManager;
 import org.semanticweb.owlapi.model.*;
 
 import java.io.File;
-import java.util.concurrent.TimeoutException;
 import java.util.stream.*;
 import java.util.*;
 
@@ -28,27 +27,20 @@ public class Main {
                 .filter(x -> x.classExpressions().noneMatch(OWLClassExpression::isClassExpressionLiteral))
                 .flatMap(OWLNaryClassAxiom::classExpressions);
 
-        try {
-            for (Iterator<OWLClassExpression> it = Stream.concat(subAxiomExpressions, eqAxiomExpressions).iterator(); it.hasNext(); ) {
-                OWLClassExpression expression = it.next();
-                try {
-                    minimizeExpression(expression, ontology);
-                } catch (TimeoutException e) {
-                    throw e;
-                } catch (Throwable t) {
-                    System.out.println("Could not Minimise: " + expression);
-                    if (expression.accept(new ClassExpressionFeasibleVisitor()) && !expression.accept(new ClassExpressionBuggedVisitor())) {
-                        System.out.println("WARNING: The unminimisable expression did not appear to be bugged");
-                    }
+        for (Iterator<OWLClassExpression> it = Stream.concat(subAxiomExpressions, eqAxiomExpressions).iterator(); it.hasNext(); ) {
+            OWLClassExpression expression = it.next();
+            try {
+                minimizeExpression(expression, ontology);
+            } catch (Throwable t) {
+                System.out.println("Could not Minimise: " + expression);
+                if (expression.accept(new ClassExpressionFeasibleVisitor()) && !expression.accept(new ClassExpressionBuggedVisitor())) {
+                    System.out.println("WARNING: The unminimisable expression did not appear to be bugged");
                 }
             }
-        } catch (TimeoutException e) {
-            e.printStackTrace();
-            System.out.println("Not minimizing " + filepath + "Took too long");
         }
         System.out.println("Done processing file: " + filepath);
     }
-    private static void minimizeExpression(OWLClassExpression expression, OWLOntology ontology) throws Exception {
+    private static void minimizeExpression(OWLClassExpression expression, OWLOntology ontology) {
         System.out.println("---------------------------------------");
         System.out.println("Minimizing expression: " + expression);
         try {
@@ -63,10 +55,10 @@ public class Main {
                 newExpression.ifPresent(expr -> System.out.println(
                         "Minimized expression to: " + expr + "\nWith size: " + expr.accept(new ClassExpressionSizeVisitor())
                 ));
-                System.out.println("---------------------------------------");
             }
         } catch (RuntimeException e) {
             e.printStackTrace();
         }
+        System.out.println("---------------------------------------");
     }
 }
