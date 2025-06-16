@@ -46,3 +46,10 @@ bin/
 # JVM/sbt logs
 *.log
 hs_err_pid*
+
+# Own logs
+logs/
+
+# Downloaded stuff
+pool_sample/
+*.zip
