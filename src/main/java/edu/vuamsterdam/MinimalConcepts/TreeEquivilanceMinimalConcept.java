@@ -6,7 +6,7 @@ import org.semanticweb.owlapi.reasoner.*;
 
 import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.stream.Collectors;
+import java.util.stream.*;
 
 public class TreeEquivilanceMinimalConcept implements MinimalConcept{
     private final OWLOntology ontology;
@@ -26,35 +26,42 @@ public class TreeEquivilanceMinimalConcept implements MinimalConcept{
         Set<OWLClassExpression> replacements = generateAllReplacements(base, expressionset);
         System.out.println("Generated replacements");
 
-        OWLOntology newOntology = Helpers.copyOntology(ontology);
-
         String baseIRI = "tempFormula#";
         OWLClass baseClass = factory.getOWLClass(IRI.create(baseIRI + 0));
-        manager.addAxiom(newOntology, factory.getOWLEquivalentClassesAxiom(baseClass, base));
+        OWLEquivalentClassesAxiom baseAxiom = factory.getOWLEquivalentClassesAxiom(baseClass, base);
+        manager.addAxiom(ontology, baseAxiom);
 
-        // There seriously isn't a way to enumerate streams in java still?
         AtomicInteger i = new AtomicInteger(1);
-        List<Pair<OWLClass, OWLClassExpression>> newClasses = replacements.stream()
-                .map(expr -> {
-                    OWLClass cls = factory.getOWLClass(IRI.create(baseIRI + i.getAndIncrement()));
-                    OWLEquivalentClassesAxiom ax = factory.getOWLEquivalentClassesAxiom(cls, expr);
-                    manager.addAxiom(newOntology, ax);
-                    return new Pair<>(cls, expr);
-                })
-                .toList();
+        List<Pair<OWLClass, OWLClassExpression>> newClasses = new ArrayList<>();
+        List<OWLEquivalentClassesAxiom> newAxioms = new ArrayList<>();
+
+        for (OWLClassExpression expression : replacements) {
+            OWLClass cls = factory.getOWLClass(IRI.create(baseIRI + i.getAndIncrement()));
+            OWLEquivalentClassesAxiom ax = factory.getOWLEquivalentClassesAxiom(cls, expression);
+            manager.addAxiom(ontology, ax);
+
+            newClasses.add(new Pair<>(cls, expression));
+            newAxioms.add(ax);
+        }
 
         OWLReasonerFactory reasonerFactory = new ReasonerFactory();
-        OWLReasoner reasoner = reasonerFactory.createReasoner(newOntology);
+        OWLReasoner reasoner = reasonerFactory.createReasoner(ontology);
         System.out.println("precomputing inferences");
         reasoner.precomputeInferences(InferenceType.CLASS_HIERARCHY);
         System.out.println("precomputed inferences");
-        Node<OWLClass> equivilantClasses = reasoner.getEquivalentClasses(baseClass);
+        final Node<OWLClass> equivilantClasses = reasoner.getEquivalentClasses(baseClass);
+        System.out.println(equivilantClasses);
 
-        return newClasses.stream()
+        Optional<OWLClassExpression> ret =  newClasses.stream()
                 .sorted(Comparator.comparingInt(p -> p.second().accept(new ClassExpressionSizeVisitor())))
                 .filter(p -> equivilantClasses.contains(p.first()))
                 .map(Pair::second)
                 .findAny();
+
+        manager.removeAxioms(ontology, Stream.concat(newAxioms.stream(), Stream.of(baseAxiom)));
+        reasoner.flush();
+
+        return ret;
     }
 
     private Set<OWLClassExpression> generateAllReplacements(OWLClassExpression expr, Set<OWLClass> replacements) {

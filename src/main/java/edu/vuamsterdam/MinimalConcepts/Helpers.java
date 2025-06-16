@@ -12,15 +12,6 @@ public class Helpers {
         return ret;
     }
 
-    public static OWLOntology copyOntology(OWLOntology ontology) {
-        try {
-            OWLOntologyManager manager = ontology.getOWLOntologyManager();
-            return manager.createOntology(ontology.getAxioms());
-        } catch (OWLOntologyCreationException e) {
-            throw new RuntimeException("Failed to copy ontology", e);
-        }
-    }
-
     // Another one that is in many standard libraries,
     // Instead, copied from StackOverflow.
     public static <T> Set<Set<T>> powerSet(Set<T> originalSet) {

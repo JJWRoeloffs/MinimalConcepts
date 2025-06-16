@@ -58,7 +58,7 @@ public class Main {
                 return;
 
             if (origSize < 5) {
-                MinimalConcept minimalConceptGenerator = new SubsumptionLearningMinimalConcept(ontology, 0.02);
+                MinimalConcept minimalConceptGenerator = new SubsumptionLearningMinimalConcept(ontology, 0.02, true);
                 Optional<OWLClassExpression> newExpression = minimalConceptGenerator.getMinimalConcept(expression);
                 newExpression.ifPresent(expr -> System.out.println(
                         "Minimized expression to: " + expr + "\nWith size: " + expr.accept(new ClassExpressionSizeVisitor())

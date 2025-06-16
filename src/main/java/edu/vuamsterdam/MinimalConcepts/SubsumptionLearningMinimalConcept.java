@@ -12,19 +12,25 @@ public class SubsumptionLearningMinimalConcept implements MinimalConcept {
     private final OWLOntology ontology;
     private final OWLReasoner reasoner;
     private final OWLDataFactory factory;
+    private final OWLOntologyManager manager;
     private final double beta;
     private final Map<Pair<OWLClassExpression, OWLClassExpression>, Double> accuracies;
     private final Map<Pair<Integer, OWLClassExpression>, Set<OWLClassExpression>> rhoTops;
+    private final boolean disjuncts;
 
-    public SubsumptionLearningMinimalConcept(OWLOntology ontology, double beta) {
+    public SubsumptionLearningMinimalConcept(OWLOntology ontology, double beta, boolean disjuncts) {
         this.beta = beta;
+        this.disjuncts = disjuncts;
         this.ontology = ontology;
-        this.factory = ontology.getOWLOntologyManager().getOWLDataFactory();
+        this.manager = ontology.getOWLOntologyManager();
+        this.factory = manager.getOWLDataFactory();
 
 
         OWLReasonerFactory reasonerFactory = new ReasonerFactory();
         this.reasoner = reasonerFactory.createReasoner(ontology);
+        System.out.println("precomputing initial inferences");
         reasoner.precomputeInferences(InferenceType.CLASS_HIERARCHY);
+        System.out.println("precomputed initial inferences");
 
         this.accuracies = new HashMap<>();
         this.rhoTops = new HashMap<>();
@@ -64,22 +70,25 @@ public class SubsumptionLearningMinimalConcept implements MinimalConcept {
                     .collect(Collectors.toSet());
             nodeFormulas.addAll(newSuccessors);
 
-            OWLOntology copiedOntology = Helpers.copyOntology(ontology);
             String baseIRI = "tempFormula#";
 
-            // There seriously isn't a way to enumerate streams in java still?
             AtomicInteger i = new AtomicInteger(0);
-            OWLOntologyManager manager = ontology.getOWLOntologyManager();
-            List<Pair<OWLClass, OWLClassExpression>> newClasses = newSuccessors.stream()
-                    .map(expr -> {
-                        OWLClass cls = factory.getOWLClass(IRI.create(baseIRI + i.getAndIncrement()));
-                        OWLEquivalentClassesAxiom ax = factory.getOWLEquivalentClassesAxiom(cls, expr);
-                        manager.addAxiom(copiedOntology, ax);
-                        return new Pair<>(cls, expr);
-                    })
-                    .toList();
+            List<Pair<OWLClass, OWLClassExpression>> newClasses = new ArrayList<>();
+            List<OWLEquivalentClassesAxiom> newAxioms = new ArrayList<>();
 
+            for (OWLClassExpression successor : newSuccessors) {
+                OWLClass cls = factory.getOWLClass(IRI.create(baseIRI + i.getAndIncrement()));
+                OWLEquivalentClassesAxiom ax = factory.getOWLEquivalentClassesAxiom(cls, successor);
+                manager.addAxiom(ontology, ax);
+
+                newClasses.add(new Pair<>(cls, successor));
+                newAxioms.add(ax);
+            }
+
+            reasoner.flush();
+            System.out.println("precomputing inferences");
             reasoner.precomputeInferences(InferenceType.CLASS_HIERARCHY);
+            System.out.println("precomputed inferences");
 
             Set<SearchNode> newNodes = newClasses.stream()
                     .map(pair -> new SearchNode(pair.second(), pair.second().accept(new ClassExpressionSizeVisitor()), candidate.n, accuracyCashed(base, pair)))
@@ -87,6 +96,8 @@ public class SubsumptionLearningMinimalConcept implements MinimalConcept {
 
             nodes.addAll(newNodes);
             candidate.n += 1;
+            manager.removeAxioms(ontology, newAxioms);
+            reasoner.flush();
         }
     }
 
@@ -174,6 +185,7 @@ public class SubsumptionLearningMinimalConcept implements MinimalConcept {
     }
 
     private Set<OWLClassExpression> rhoTop(int targetSize, OWLClassExpression base) {
+        System.out.println("Started rho top");
         Set<OWLClassExpression> bases = reasoner.getSubClasses(factory.getOWLThing(), true)
                 .nodes()
                 .map(node -> smallestItem(node.entities()))
@@ -198,6 +210,12 @@ public class SubsumptionLearningMinimalConcept implements MinimalConcept {
 
         bases.removeIf(f -> reasoner.isEntailed(factory.getOWLDisjointClassesAxiom(base, f)));
 
+        // If we don't introduce any disjuncts here, we won't ever create them.
+        if (!disjuncts) {
+            System.out.println("Finished rho top");
+            return bases;
+        }
+
         Set<OWLClassExpression> ret = new HashSet<>();
         Set<Set<OWLClassExpression>> powerSet = Helpers.powerSetOfSize(bases, targetSize);
 
@@ -207,6 +225,8 @@ public class SubsumptionLearningMinimalConcept implements MinimalConcept {
             else if (!subset.isEmpty())
                 ret.add(factory.getOWLObjectUnionOf(subset));
         }
+
+        System.out.println("Finished rho top");
         return ret;
     }
 
