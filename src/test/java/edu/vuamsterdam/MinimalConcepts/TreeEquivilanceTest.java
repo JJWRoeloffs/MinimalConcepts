@@ -7,7 +7,7 @@ import org.junit.Test;
 import org.semanticweb.owlapi.apibinding.OWLManager;
 import org.semanticweb.owlapi.model.*;
 
-public class SubsumptionLearningTest {
+public class TreeEquivilanceTest {
     private OWLOntologyManager manager;
     private OWLOntology ontology;
 
@@ -24,11 +24,8 @@ public class SubsumptionLearningTest {
         OWLClass A3 = OWLHelpers.getClassByShortName(ontology, "A3");
         OWLClassExpression example = factory.getOWLObjectUnionOf(A1, A3);
 
-        SubsumptionLearningMinimalConcept minimalConceptGeneratorDisjuncts = new SubsumptionLearningMinimalConcept(ontology, 0.5, true);
-        assertEquals(A3, minimalConceptGeneratorDisjuncts.getMinimalConcept(example).orElseThrow());
-
-        SubsumptionLearningMinimalConcept minimalConceptGeneratorNoDisjuncts = new SubsumptionLearningMinimalConcept(ontology, 0.5, false);
-        assertEquals(A3, minimalConceptGeneratorNoDisjuncts.getMinimalConcept(example).orElseThrow());
+        TreeEquivilanceMinimalConcept minimalConceptGenerator = new TreeEquivilanceMinimalConcept(ontology);
+        assertEquals(A3, minimalConceptGenerator.getMinimalConcept(example).orElseThrow());
     }
 
     @Test
@@ -46,10 +43,7 @@ public class SubsumptionLearningTest {
                 factory.getOWLObjectIntersectionOf(A4, factory.getOWLObjectSomeValuesFrom(s, A3))));
         OWLClassExpression expected = factory.getOWLObjectIntersectionOf(A1, A2);
 
-        SubsumptionLearningMinimalConcept minimalConceptGeneratorDisjuncts = new SubsumptionLearningMinimalConcept(ontology, 0.5, true);
-        assertEquals(expected, minimalConceptGeneratorDisjuncts.getMinimalConcept(example).orElseThrow());
-
-        SubsumptionLearningMinimalConcept minimalConceptGeneratorNoDisjuncts = new SubsumptionLearningMinimalConcept(ontology, 0.5, false);
-        assertEquals(expected, minimalConceptGeneratorNoDisjuncts.getMinimalConcept(example).orElseThrow());
+        TreeEquivilanceMinimalConcept minimalConceptGenerator = new TreeEquivilanceMinimalConcept(ontology);
+        assertEquals(expected, minimalConceptGenerator.getMinimalConcept(example).orElseThrow());
     }
 }
