@@ -13,6 +13,7 @@ public class Main {
         processOntology(args[0]);
     }
     public static void processOntology(String filepath) throws Exception {
+        System.out.println("Processing file: " + filepath);
         OWLOntologyManager manager = OWLManager.createOWLOntologyManager();
         OWLOntology ontology = manager.loadOntologyFromOntologyDocument(new File(filepath));
 
@@ -45,6 +46,7 @@ public class Main {
             e.printStackTrace();
             System.out.println("Not minimizing " + filepath + "Took too long");
         }
+        System.out.println("Done processing file: " + filepath);
     }
     private static void minimizeExpression(OWLClassExpression expression, OWLOntology ontology) throws Exception {
         System.out.println("---------------------------------------");
@@ -56,7 +58,7 @@ public class Main {
                 return;
 
             if (origSize < 5) {
-                MinimalConcept minimalConceptGenerator = TimeoutHelper.runWithTimeout(() -> new TreeEquivilanceMinimalConcept(ontology), 60);
+                MinimalConcept minimalConceptGenerator = new SubsumptionLearningMinimalConcept(ontology, 0.02);
                 Optional<OWLClassExpression> newExpression = minimalConceptGenerator.getMinimalConcept(expression);
                 newExpression.ifPresent(expr -> System.out.println(
                         "Minimized expression to: " + expr + "\nWith size: " + expr.accept(new ClassExpressionSizeVisitor())
