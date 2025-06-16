@@ -8,12 +8,12 @@ import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.*;
 
-public class TreeEquivilanceMinimalConcept implements MinimalConcept{
+public class TreeEquivalenceMinimalConcept implements MinimalConcept{
     private final OWLOntology ontology;
     private final OWLOntologyManager manager;
     private final OWLDataFactory factory;
 
-    public TreeEquivilanceMinimalConcept(OWLOntology ontology) {
+    public TreeEquivalenceMinimalConcept(OWLOntology ontology) {
         this.ontology = ontology;
         this.manager = ontology.getOWLOntologyManager();
         this.factory = manager.getOWLDataFactory();
@@ -49,12 +49,12 @@ public class TreeEquivilanceMinimalConcept implements MinimalConcept{
         System.out.println("precomputing inferences");
         reasoner.precomputeInferences(InferenceType.CLASS_HIERARCHY);
         System.out.println("precomputed inferences");
-        final Node<OWLClass> equivilantClasses = reasoner.getEquivalentClasses(baseClass);
-        System.out.println(equivilantClasses);
+        final Node<OWLClass> equivalentClasses = reasoner.getEquivalentClasses(baseClass);
+        System.out.println(equivalentClasses);
 
         Optional<OWLClassExpression> ret =  newClasses.stream()
                 .sorted(Comparator.comparingInt(p -> p.second().accept(new ClassExpressionSizeVisitor())))
-                .filter(p -> equivilantClasses.contains(p.first()))
+                .filter(p -> equivalentClasses.contains(p.first()))
                 .map(Pair::second)
                 .findAny();
 

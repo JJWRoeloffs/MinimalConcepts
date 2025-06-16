@@ -7,7 +7,7 @@ import org.junit.Test;
 import org.semanticweb.owlapi.apibinding.OWLManager;
 import org.semanticweb.owlapi.model.*;
 
-public class TreeEquivilanceTest {
+public class TreeEquivalenceTest {
     private OWLOntologyManager manager;
     private OWLOntology ontology;
 
@@ -24,7 +24,7 @@ public class TreeEquivilanceTest {
         OWLClass A3 = OWLHelpers.getClassByShortName(ontology, "A3");
         OWLClassExpression example = factory.getOWLObjectUnionOf(A1, A3);
 
-        TreeEquivilanceMinimalConcept minimalConceptGenerator = new TreeEquivilanceMinimalConcept(ontology);
+        TreeEquivalenceMinimalConcept minimalConceptGenerator = new TreeEquivalenceMinimalConcept(ontology);
         assertEquals(A3, minimalConceptGenerator.getMinimalConcept(example).orElseThrow());
     }
 
@@ -43,7 +43,7 @@ public class TreeEquivilanceTest {
                 factory.getOWLObjectIntersectionOf(A4, factory.getOWLObjectSomeValuesFrom(s, A3))));
         OWLClassExpression expected = factory.getOWLObjectIntersectionOf(A1, A2);
 
-        TreeEquivilanceMinimalConcept minimalConceptGenerator = new TreeEquivilanceMinimalConcept(ontology);
+        TreeEquivalenceMinimalConcept minimalConceptGenerator = new TreeEquivalenceMinimalConcept(ontology);
         assertEquals(expected, minimalConceptGenerator.getMinimalConcept(example).orElseThrow());
     }
 }
