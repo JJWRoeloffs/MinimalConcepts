@@ -54,7 +54,6 @@ public class TreeEquivalenceMinimalConcept implements MinimalConcept {
 
         AtomicInteger i = new AtomicInteger(1);
         List<Pair<OWLClass, OWLClassExpression>> newClasses = new ArrayList<>();
-        List<OWLEquivalentClassesAxiom> newAxioms = new ArrayList<>();
 
         for (OWLClassExpression expression : replacements) {
             OWLClass cls = factory.getOWLClass(IRI.create(baseIRI + i.getAndIncrement()));
@@ -62,7 +61,7 @@ public class TreeEquivalenceMinimalConcept implements MinimalConcept {
             manager.addAxiom(ontology, ax);
 
             newClasses.add(new Pair<>(cls, expression));
-            newAxioms.add(ax);
+            axiomsToRemove.add(ax);
         }
 
         OWLReasonerFactory reasonerFactory = new ReasonerFactory();
@@ -73,16 +72,11 @@ public class TreeEquivalenceMinimalConcept implements MinimalConcept {
         final Node<OWLClass> equivalentClasses = reasoner.getEquivalentClasses(baseClass);
         System.out.println(equivalentClasses);
 
-        Optional<OWLClassExpression> ret = newClasses.stream()
+        return newClasses.stream()
                 .sorted(Comparator.comparingInt(p -> p.second().accept(new ClassExpressionSizeVisitor())))
                 .filter(p -> equivalentClasses.contains(p.first()))
                 .map(Pair::second)
                 .findAny();
-
-        manager.removeAxioms(ontology, Stream.concat(newAxioms.stream(), Stream.of(baseAxiom)));
-        reasoner.flush();
-
-        return ret;
     }
 
     private Set<OWLClassExpression> generateAllReplacements(OWLClassExpression expr, Set<OWLClass> replacements) {
