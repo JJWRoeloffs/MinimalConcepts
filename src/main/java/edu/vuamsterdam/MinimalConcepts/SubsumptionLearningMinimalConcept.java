@@ -21,6 +21,7 @@ public class SubsumptionLearningMinimalConcept implements MinimalConcept {
     private final Map<Pair<Integer, OWLClassExpression>, Set<OWLClassExpression>> rhoTops;
     private OWLOntology ontology;
     private Set<OWLEquivalentClassesAxiom> axiomsToRemove;
+    private AtomicInteger removeIdx;
 
     public SubsumptionLearningMinimalConcept(OWLOntology ontology, double beta, boolean disjuncts, boolean useStarModule, int timeoutSeconds) {
         this.beta = beta;
@@ -42,6 +43,7 @@ public class SubsumptionLearningMinimalConcept implements MinimalConcept {
         this.accuracies = new HashMap<>();
         this.rhoTops = new HashMap<>();
         this.axiomsToRemove = new HashSet<>();
+        this.removeIdx = new AtomicInteger(0);
     }
 
     private static <T extends OWLClassExpression> T smallestItem(Stream<T> entities) {
@@ -78,6 +80,10 @@ public class SubsumptionLearningMinimalConcept implements MinimalConcept {
             System.out.println(candidate.formula + "   " + candidate.n + "     " + candidate.accuracy);
             if (candidate.accuracy == Double.NEGATIVE_INFINITY) {
                 return retList.stream().min(Comparator.comparingInt(x -> x.accept(new ClassExpressionSizeVisitor())));
+            // These should be filtered out earlier already, but, formally, this is the place that guarantees it.
+            } else if (candidate.formula.getClassesInSignature().stream().anyMatch(x -> x.getIRI().getShortForm().contains("tempFormula#"))) {
+                candidate.accuracy = Double.NEGATIVE_INFINITY;
+                continue;
             } else if (candidate.size >= maxSize || candidate.n > maxSize) {
                 candidate.accuracy = Double.NEGATIVE_INFINITY;
                 continue;
@@ -98,17 +104,15 @@ public class SubsumptionLearningMinimalConcept implements MinimalConcept {
 
             String baseIRI = "tempFormula#";
 
-            AtomicInteger i = new AtomicInteger(0);
             List<Pair<OWLClass, OWLClassExpression>> newClasses = new ArrayList<>();
-            List<OWLEquivalentClassesAxiom> newAxioms = new ArrayList<>();
 
             for (OWLClassExpression successor : newSuccessors) {
-                OWLClass cls = factory.getOWLClass(IRI.create(baseIRI + i.getAndIncrement()));
+                OWLClass cls = factory.getOWLClass(IRI.create(baseIRI + removeIdx.getAndIncrement()));
                 OWLEquivalentClassesAxiom ax = factory.getOWLEquivalentClassesAxiom(cls, successor);
                 manager.addAxiom(ontology, ax);
 
                 newClasses.add(new Pair<>(cls, successor));
-                newAxioms.add(ax);
+                axiomsToRemove.add(ax);
             }
 
             reasoner.flush();
@@ -122,8 +126,6 @@ public class SubsumptionLearningMinimalConcept implements MinimalConcept {
 
             nodes.addAll(newNodes);
             candidate.n += 1;
-            manager.removeAxioms(ontology, newAxioms);
-            reasoner.flush();
         }
 
         return retList.stream().min(Comparator.comparingInt(x -> x.accept(new ClassExpressionSizeVisitor())));
@@ -145,12 +147,14 @@ public class SubsumptionLearningMinimalConcept implements MinimalConcept {
             return reasoner.getSubClasses(target, true)
                     .nodes()
                     .map(node -> smallestItem(node.entities()))
+                    .filter(owlClass -> !owlClass.getIRI().getShortForm().contains("tempFormula#"))
                     .filter(x -> !reasoner.isEntailed(factory.getOWLDisjointClassesAxiom(x, context)))
                     .collect(Collectors.toSet());
         if (target instanceof OWLObjectComplementOf)
             return reasoner.getSuperClasses(((OWLObjectComplementOf) target).getOperand(), true)
                     .nodes()
                     .map(node -> smallestItem(node.entities()))
+                    .filter(owlClass -> !owlClass.getIRI().getShortForm().contains("tempFormula#"))
                     .map(factory::getOWLObjectComplementOf)
                     .filter(x -> !reasoner.isEntailed(factory.getOWLDisjointClassesAxiom(x, context)))
                     .collect(Collectors.toSet());
@@ -217,11 +221,13 @@ public class SubsumptionLearningMinimalConcept implements MinimalConcept {
         Set<OWLClassExpression> bases = reasoner.getSubClasses(factory.getOWLThing(), true)
                 .nodes()
                 .map(node -> smallestItem(node.entities()))
+                .filter(owlClass -> !owlClass.getIRI().getShortForm().contains("tempFormula#"))
                 .collect(Collectors.toSet());
 
         Set<OWLClassExpression> botClasses = reasoner.getSuperClasses(factory.getOWLNothing(), true)
                 .nodes()
                 .map(node -> smallestItem(node.entities()))
+                .filter(owlClass -> !owlClass.getIRI().getShortForm().contains("tempFormula#"))
                 .map(factory::getOWLObjectComplementOf)
                 .collect(Collectors.toSet());
         bases.addAll(botClasses);
@@ -270,6 +276,8 @@ public class SubsumptionLearningMinimalConcept implements MinimalConcept {
         if (reasoner.isEntailed(factory.getOWLEquivalentClassesAxiom(target, found)))
             return Double.POSITIVE_INFINITY;
 
+        // Here, we do not filter out the tempFormula# classes. In fact, keeping them around here
+        // for extra fidelity of the search is the reason we don't remove them earlier.
         Set<OWLClass> targetSuperClasses = reasoner.getSuperClasses(target, false).getFlattened();
         Set<OWLClass> foundSuperClasses = reasoner.getSuperClasses(found, false).getFlattened();
 
