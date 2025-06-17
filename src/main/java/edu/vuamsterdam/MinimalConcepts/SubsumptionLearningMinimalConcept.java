@@ -11,6 +11,7 @@ import org.semanticweb.owlapi.reasoner.*;
 public class SubsumptionLearningMinimalConcept implements MinimalConcept {
     private final boolean useStarModule;
     private final boolean disjuncts;
+    private final long timeoutMillis;
     private final OWLOntology actualOntology;
     private final OWLReasoner reasoner;
     private final OWLDataFactory factory;
@@ -21,10 +22,11 @@ public class SubsumptionLearningMinimalConcept implements MinimalConcept {
     private OWLOntology ontology;
     private Set<OWLEquivalentClassesAxiom> axiomsToRemove;
 
-    public SubsumptionLearningMinimalConcept(OWLOntology ontology, double beta, boolean disjuncts, boolean useStarModule) {
+    public SubsumptionLearningMinimalConcept(OWLOntology ontology, double beta, boolean disjuncts, boolean useStarModule, int timeoutSeconds) {
         this.beta = beta;
         this.disjuncts = disjuncts;
         this.useStarModule = useStarModule;
+        this.timeoutMillis = timeoutSeconds * 1000L;
         this.ontology = ontology;
         this.actualOntology = ontology;
         this.manager = ontology.getOWLOntologyManager();
@@ -62,6 +64,8 @@ public class SubsumptionLearningMinimalConcept implements MinimalConcept {
     }
 
     private Optional<OWLClassExpression> getMinimalConceptInner(OWLClassExpression base) {
+        long startTime = System.currentTimeMillis();
+        HashSet<OWLClassExpression> retList = new HashSet<>();
         int maxSize = base.accept(new ClassExpressionSizeVisitor());
         OWLClass top = factory.getOWLThing();
 
@@ -69,17 +73,19 @@ public class SubsumptionLearningMinimalConcept implements MinimalConcept {
         ArrayList<SearchNode> nodes = new ArrayList<>(Collections.singleton(new SearchNode(top, 1, 0, 0)));
         HashSet<OWLClassExpression> nodeFormulas = new HashSet<>(Collections.singleton(top));
 
-        while (true) {
+        while (System.currentTimeMillis() - startTime < timeoutMillis) {
             SearchNode candidate = nodes.stream().max(Comparator.comparingDouble(x -> x.accuracy - beta * x.n)).orElseThrow();
             System.out.println(candidate.formula + "   " + candidate.n + "     " + candidate.accuracy);
-            if (candidate.accuracy == Double.NEGATIVE_INFINITY)
-                return Optional.empty();
-            if (reasoner.isEntailed(factory.getOWLEquivalentClassesAxiom(base, candidate.formula)))
-                return Optional.of(candidate.formula);
-            if (candidate.size >= maxSize)
-                return Optional.empty();
-            if (candidate.n > maxSize)
-                return Optional.empty();
+            if (candidate.accuracy == Double.NEGATIVE_INFINITY) {
+                return retList.stream().min(Comparator.comparingInt(x -> x.accept(new ClassExpressionSizeVisitor())));
+            } else if (candidate.size >= maxSize || candidate.n > maxSize) {
+                candidate.accuracy = Double.NEGATIVE_INFINITY;
+                continue;
+            } else if (reasoner.isEntailed(factory.getOWLEquivalentClassesAxiom(base, candidate.formula))) {
+                retList.add(candidate.formula);
+                maxSize = candidate.size;
+                continue;
+            }
 
             candidate.refined.addAll(rho(top, candidate.formula, base, candidate.n + 1));
 
@@ -119,6 +125,8 @@ public class SubsumptionLearningMinimalConcept implements MinimalConcept {
             manager.removeAxioms(ontology, newAxioms);
             reasoner.flush();
         }
+
+        return retList.stream().min(Comparator.comparingInt(x -> x.accept(new ClassExpressionSizeVisitor())));
     }
 
     private Set<OWLClassExpression> rho(OWLClassExpression context, OWLClassExpression target, OWLClassExpression base, int targetSize) {
