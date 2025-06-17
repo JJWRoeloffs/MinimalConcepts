@@ -11,6 +11,7 @@ public class Main {
     public static void main(String[] args) throws Exception {
         processOntology(args[0]);
     }
+
     public static void processOntology(String filepath) throws Exception {
         System.out.println("Processing file: " + filepath);
         OWLOntologyManager manager = OWLManager.createOWLOntologyManager();
@@ -40,6 +41,7 @@ public class Main {
         }
         System.out.println("Done processing file: " + filepath);
     }
+
     private static void minimizeExpression(OWLClassExpression expression, OWLOntology ontology) {
         System.out.println("---------------------------------------");
         System.out.println("Minimizing expression: " + expression);

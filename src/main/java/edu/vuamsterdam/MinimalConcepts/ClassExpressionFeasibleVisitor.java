@@ -39,17 +39,17 @@ public class ClassExpressionFeasibleVisitor implements OWLClassExpressionVisitor
 
     @Override
     public Boolean visit(OWLObjectMinCardinality ce) {
-      return false;
+        return false;
     }
 
     @Override
     public Boolean visit(OWLObjectExactCardinality ce) {
-      return false;
+        return false;
     }
 
     @Override
     public Boolean visit(OWLObjectMaxCardinality ce) {
-      return false;
+        return false;
     }
 
     @Override

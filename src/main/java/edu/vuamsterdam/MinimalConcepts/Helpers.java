@@ -1,6 +1,7 @@
 package edu.vuamsterdam.MinimalConcepts;
 
 import java.util.*;
+
 import org.semanticweb.owlapi.model.*;
 
 public class Helpers {
