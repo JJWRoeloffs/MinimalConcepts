@@ -71,6 +71,12 @@ public class SubsumptionLearningMinimalConcept implements MinimalConcept {
         int maxSize = base.accept(new ClassExpressionSizeVisitor());
         OWLClass top = factory.getOWLThing();
 
+        String baseIRI = "tempFormula#";
+        OWLClass baseClass = factory.getOWLClass(IRI.create(baseIRI + removeIdx.getAndIncrement()));
+        OWLEquivalentClassesAxiom baseAxiom = factory.getOWLEquivalentClassesAxiom(baseClass, base);
+        axiomsToRemove.add(baseAxiom);
+        manager.addAxiom(ontology, baseAxiom);
+
         // Current accuracy always gives top accuracy 0. This might change, coupling! beware!
         ArrayList<SearchNode> nodes = new ArrayList<>(Collections.singleton(new SearchNode(top, 1, 0, 0)));
         HashSet<OWLClassExpression> nodeFormulas = new HashSet<>(Collections.singleton(top));
@@ -102,8 +108,6 @@ public class SubsumptionLearningMinimalConcept implements MinimalConcept {
                     .collect(Collectors.toSet());
             nodeFormulas.addAll(newSuccessors);
 
-            String baseIRI = "tempFormula#";
-
             List<Pair<OWLClass, OWLClassExpression>> newClasses = new ArrayList<>();
 
             for (OWLClassExpression successor : newSuccessors) {
@@ -121,7 +125,7 @@ public class SubsumptionLearningMinimalConcept implements MinimalConcept {
             System.out.println("precomputed inferences");
 
             Set<SearchNode> newNodes = newClasses.stream()
-                    .map(pair -> new SearchNode(pair.second(), pair.second().accept(new ClassExpressionSizeVisitor()), candidate.n, accuracyCashed(base, pair)))
+                    .map(pair -> new SearchNode(pair.second(), pair.second().accept(new ClassExpressionSizeVisitor()), candidate.n, accuracyCashed(baseClass, pair)))
                     .collect(Collectors.toSet());
 
             nodes.addAll(newNodes);
@@ -264,16 +268,16 @@ public class SubsumptionLearningMinimalConcept implements MinimalConcept {
         return ret;
     }
 
-    private double accuracyCashed(OWLClassExpression target, Pair<OWLClass, OWLClassExpression> found) {
+    private double accuracyCashed(OWLClass target, Pair<OWLClass, OWLClassExpression> found) {
         return accuracies.computeIfAbsent(new Pair<>(target, found.second()),
                 k -> accuracy(target, found.first()));
     }
 
-    private double accuracy(OWLClassExpression target, OWLClass found) {
+    private double accuracy(OWLClass target, OWLClass found) {
         // For now, I return posinf to indicate that either we have our value,
         // I might do this differently if needed for something,
         // But I otherwise do not see a reason to overcomplicate things.
-        if (reasoner.isEntailed(factory.getOWLEquivalentClassesAxiom(target, found)))
+        if (reasoner.getEquivalentClasses(target).contains(found))
             return Double.POSITIVE_INFINITY;
 
         // Here, we do not filter out the tempFormula# classes. In fact, keeping them around here
