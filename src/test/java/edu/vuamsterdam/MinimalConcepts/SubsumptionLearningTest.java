@@ -47,7 +47,7 @@ public class SubsumptionLearningTest {
         OWLClass A3 = OWLHelpers.getClassByShortName(ontology, "A3");
         OWLClassExpression example = factory.getOWLObjectUnionOf(A1, A3);
 
-        SubsumptionLearningMinimalConcept minimalConceptGenerator = new SubsumptionLearningMinimalConcept(ontology, 0.5, disjuncts, starModule, 10);
+        SubsumptionLearningMinimalConcept minimalConceptGenerator = new SubsumptionLearningMinimalConcept(ontology, 10, 0.5, disjuncts, starModule, 10);
         assertEquals(A3, minimalConceptGenerator.getMinimalConcept(example).orElseThrow());
     }
 
@@ -66,7 +66,7 @@ public class SubsumptionLearningTest {
                 factory.getOWLObjectIntersectionOf(A4, factory.getOWLObjectSomeValuesFrom(s, A3))));
         OWLClassExpression expected = factory.getOWLObjectIntersectionOf(A1, A2);
 
-        SubsumptionLearningMinimalConcept minimalConceptGenerator = new SubsumptionLearningMinimalConcept(ontology, 0.5, disjuncts, starModule, 10);
+        SubsumptionLearningMinimalConcept minimalConceptGenerator = new SubsumptionLearningMinimalConcept(ontology, 10, 0.5, disjuncts, starModule, 10);
         assertEquals(expected, minimalConceptGenerator.getMinimalConcept(example).orElseThrow());
     }
 }

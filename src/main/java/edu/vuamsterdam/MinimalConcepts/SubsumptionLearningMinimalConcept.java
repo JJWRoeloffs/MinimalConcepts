@@ -12,6 +12,7 @@ public class SubsumptionLearningMinimalConcept implements MinimalConcept {
     private final boolean useStarModule;
     private final boolean disjuncts;
     private final long timeoutMillis;
+    private final int maxSizeOverride;
     private final OWLOntology actualOntology;
     private final OWLReasoner reasoner;
     private final OWLDataFactory factory;
@@ -23,11 +24,12 @@ public class SubsumptionLearningMinimalConcept implements MinimalConcept {
     private Set<OWLEquivalentClassesAxiom> axiomsToRemove;
     private AtomicInteger removeIdx;
 
-    public SubsumptionLearningMinimalConcept(OWLOntology ontology, double beta, boolean disjuncts, boolean useStarModule, int timeoutSeconds) {
+    public SubsumptionLearningMinimalConcept(OWLOntology ontology, int maxSize, double beta, boolean disjuncts, boolean useStarModule, int timeoutSeconds) {
         this.beta = beta;
         this.disjuncts = disjuncts;
         this.useStarModule = useStarModule;
         this.timeoutMillis = timeoutSeconds * 1000L;
+        this.maxSizeOverride = maxSize;
         this.ontology = ontology;
         this.actualOntology = ontology;
         this.manager = ontology.getOWLOntologyManager();
@@ -68,7 +70,7 @@ public class SubsumptionLearningMinimalConcept implements MinimalConcept {
     private Optional<OWLClassExpression> getMinimalConceptInner(OWLClassExpression base) {
         long startTime = System.currentTimeMillis();
         HashSet<OWLClassExpression> retList = new HashSet<>();
-        int maxSize = base.accept(new ClassExpressionSizeVisitor());
+        int maxSize = Math.min(base.accept(new ClassExpressionSizeVisitor()), maxSizeOverride);
         OWLClass top = factory.getOWLThing();
 
         String baseIRI = "tempFormula#";
