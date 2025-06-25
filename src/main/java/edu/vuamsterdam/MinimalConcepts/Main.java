@@ -54,7 +54,7 @@ public class Main {
         if (origSize == 1)
             return;
 
-        MinimalConcept minimalConceptGenerator = new SubsumptionLearningMinimalConcept(ontology, 10,0.02, true, false, 60*15);
+        MinimalConcept minimalConceptGenerator = new SubsumptionLearningMinimalConcept(ontology, 5,0.02, true, false, 60*60);
         Optional<OWLClassExpression> newExpression = minimalConceptGenerator.getMinimalConcept(expression);
 
         long durationMillis = System.currentTimeMillis() - startTime;
