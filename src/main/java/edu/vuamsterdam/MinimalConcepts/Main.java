@@ -8,12 +8,17 @@ import java.util.stream.*;
 import java.util.*;
 
 public class Main {
-    public static void main(String[] args) throws Exception {
-        processOntology(args[0]);
+    public static void main(String[] args) {
+        String filepath = args[0];
+        try {
+            processOntology(filepath);
+        } catch (Throwable e) {
+            GhettoLogger.logHardCrashed(filepath, e.toString());
+        }
     }
 
     public static void processOntology(String filepath) throws Exception {
-        System.out.println("Processing file: " + filepath);
+        GhettoLogger.logStart(filepath);
         OWLOntologyManager manager = OWLManager.createOWLOntologyManager();
         OWLOntology ontology = manager.loadOntologyFromOntologyDocument(new File(filepath));
 
@@ -28,38 +33,36 @@ public class Main {
                 .filter(x -> x.classExpressions().noneMatch(OWLClassExpression::isClassExpressionLiteral))
                 .flatMap(OWLNaryClassAxiom::classExpressions);
 
+        int i = 0;
+        long startTime = System.currentTimeMillis();
         for (Iterator<OWLClassExpression> it = Stream.concat(subAxiomExpressions, eqAxiomExpressions).iterator(); it.hasNext(); ) {
+            i++;
             OWLClassExpression expression = it.next();
             try {
                 minimizeExpression(expression, ontology);
             } catch (Throwable t) {
-                System.out.println("Could not Minimise: " + expression);
-                if (expression.accept(new ClassExpressionFeasibleVisitor()) && !expression.accept(new ClassExpressionBuggedVisitor())) {
-                    System.out.println("WARNING: The unminimisable expression did not appear to be bugged");
-                }
+                GhettoLogger.logCrashed(expression.toString(), expression.accept(new ClassExpressionBuggedVisitor()), expression.accept(new ClassExpressionFeasibleVisitor()));
             }
         }
-        System.out.println("Done processing file: " + filepath);
+        long durationMillis = System.currentTimeMillis() - startTime;
+        GhettoLogger.logFinish(filepath,  durationMillis, i);
     }
 
     private static void minimizeExpression(OWLClassExpression expression, OWLOntology ontology) {
-        System.out.println("---------------------------------------");
-        System.out.println("Minimizing expression: " + expression);
-        try {
-            int origSize = expression.accept(new ClassExpressionSizeVisitor());
-            System.out.println("Original size: " + origSize);
-            if (origSize == 1)
-                return;
+        long startTime = System.currentTimeMillis();
+        int origSize = expression.accept(new ClassExpressionSizeVisitor());
+        if (origSize == 1)
+            return;
 
-            MinimalConcept minimalConceptGenerator = new SubsumptionLearningMinimalConcept(ontology, 10,0.02, true, false, 60*15);
-            Optional<OWLClassExpression> newExpression = minimalConceptGenerator.getMinimalConcept(expression);
-            newExpression.ifPresent(expr -> System.out.println(
-                    "Minimized expression to: " + expr + "\nWith size: " + expr.accept(new ClassExpressionSizeVisitor())
-            ));
+        MinimalConcept minimalConceptGenerator = new SubsumptionLearningMinimalConcept(ontology, 10,0.02, true, false, 60*15);
+        Optional<OWLClassExpression> newExpression = minimalConceptGenerator.getMinimalConcept(expression);
 
-        } catch (RuntimeException e) {
-            e.printStackTrace();
+        long durationMillis = System.currentTimeMillis() - startTime;
+        if (newExpression.isPresent()) {
+            OWLClassExpression newExpr = newExpression.get();
+            GhettoLogger.logMinimize(durationMillis, expression.toString(), origSize, newExpr.toString(), newExpr.accept(new ClassExpressionSizeVisitor()));
+        } else {
+            GhettoLogger.logMinimize(durationMillis, expression.toString(), origSize);
         }
-        System.out.println("---------------------------------------");
     }
 }

@@ -38,9 +38,7 @@ public class SubsumptionLearningMinimalConcept implements MinimalConcept {
 
         OWLReasonerFactory reasonerFactory = new ReasonerFactory();
         this.reasoner = reasonerFactory.createReasoner(ontology);
-        System.out.println("precomputing initial inferences");
         reasoner.precomputeInferences(InferenceType.CLASS_HIERARCHY);
-        System.out.println("precomputed initial inferences");
 
         this.accuracies = new HashMap<>();
         this.rhoTops = new HashMap<>();
@@ -95,7 +93,6 @@ public class SubsumptionLearningMinimalConcept implements MinimalConcept {
 
         while (System.currentTimeMillis() - startTime < timeoutMillis) {
             SearchNode candidate = nodes.stream().max(Comparator.comparingDouble(x -> x.accuracy - beta * x.n)).orElseThrow();
-            System.out.println(candidate.formula + "   " + candidate.n + "     " + candidate.accuracy);
             if (candidate.accuracy == Double.NEGATIVE_INFINITY) {
                 return retList.stream().min(Comparator.comparingInt(x -> x.accept(new ClassExpressionSizeVisitor())));
             // These should be filtered out earlier already, but, formally, this is the place that guarantees it.
@@ -132,9 +129,7 @@ public class SubsumptionLearningMinimalConcept implements MinimalConcept {
             }
 
             reasoner.flush();
-            System.out.println("precomputing inferences");
             reasoner.precomputeInferences(InferenceType.CLASS_HIERARCHY);
-            System.out.println("precomputed inferences");
 
             Set<SearchNode> newNodes = newClasses.stream()
                     .map(pair -> new SearchNode(pair.second(), pair.second().accept(new ClassExpressionSizeVisitor()), candidate.n, accuracyCashed(basePair, pair)))
@@ -144,6 +139,7 @@ public class SubsumptionLearningMinimalConcept implements MinimalConcept {
             candidate.n += 1;
         }
 
+        GhettoLogger.logTimeout(base.toString());
         return retList.stream().min(Comparator.comparingInt(x -> x.accept(new ClassExpressionSizeVisitor())));
     }
 
@@ -233,7 +229,6 @@ public class SubsumptionLearningMinimalConcept implements MinimalConcept {
     }
 
     private Set<OWLClassExpression> rhoTop(int targetSize, OWLClassExpression base) {
-        System.out.println("Started rho top");
         Set<OWLClassExpression> bases = reasoner.getSubClasses(factory.getOWLThing(), true)
                 .nodes()
                 .map(node -> smallestItem(node.entities()))
@@ -262,7 +257,6 @@ public class SubsumptionLearningMinimalConcept implements MinimalConcept {
 
         // If we don't introduce any disjuncts here, we won't ever create them.
         if (!disjuncts) {
-            System.out.println("Finished rho top");
             return bases;
         }
 
@@ -276,7 +270,6 @@ public class SubsumptionLearningMinimalConcept implements MinimalConcept {
                 ret.add(factory.getOWLObjectUnionOf(subset));
         }
 
-        System.out.println("Finished rho top");
         return ret;
     }
 

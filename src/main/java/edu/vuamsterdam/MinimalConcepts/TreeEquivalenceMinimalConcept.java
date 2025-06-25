@@ -43,9 +43,7 @@ public class TreeEquivalenceMinimalConcept implements MinimalConcept {
     private Optional<OWLClassExpression> getMinimalConceptInner(OWLClassExpression base) {
         Set<OWLClass> expressionset = ontology.classesInSignature().collect(Collectors.toSet());
 
-        System.out.println("Generating replacements");
         Set<OWLClassExpression> replacements = generateAllReplacements(base, expressionset);
-        System.out.println("Generated replacements");
 
         String baseIRI = "tempFormula#";
         OWLClass baseClass = factory.getOWLClass(IRI.create(baseIRI + 0));
@@ -66,11 +64,8 @@ public class TreeEquivalenceMinimalConcept implements MinimalConcept {
 
         OWLReasonerFactory reasonerFactory = new ReasonerFactory();
         OWLReasoner reasoner = reasonerFactory.createReasoner(ontology);
-        System.out.println("precomputing inferences");
         reasoner.precomputeInferences(InferenceType.CLASS_HIERARCHY);
-        System.out.println("precomputed inferences");
         final Node<OWLClass> equivalentClasses = reasoner.getEquivalentClasses(baseClass);
-        System.out.println(equivalentClasses);
 
         return newClasses.stream()
                 .sorted(Comparator.comparingInt(p -> p.second().accept(new ClassExpressionSizeVisitor())))

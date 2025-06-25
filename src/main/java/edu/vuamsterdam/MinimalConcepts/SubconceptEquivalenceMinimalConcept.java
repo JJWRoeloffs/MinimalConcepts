@@ -63,9 +63,7 @@ public class SubconceptEquivalenceMinimalConcept implements MinimalConcept{
 
         OWLReasonerFactory reasonerFactory = new ReasonerFactory();
         OWLReasoner reasoner = reasonerFactory.createReasoner(ontology);
-        System.out.println("precomputing inferences");
         reasoner.precomputeInferences(InferenceType.CLASS_HIERARCHY);
-        System.out.println("precomputed inferences");
 
         newClasses.sort(Comparator.comparingInt(p -> p.second().accept(new ClassExpressionSizeVisitor())));
         OWLClassExpression smallest = base;
