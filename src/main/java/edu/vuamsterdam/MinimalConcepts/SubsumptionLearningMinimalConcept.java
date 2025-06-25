@@ -14,13 +14,13 @@ public class SubsumptionLearningMinimalConcept implements MinimalConcept {
     private final long timeoutMillis;
     private final int maxSizeOverride;
     private final OWLOntology actualOntology;
-    private final OWLReasoner reasoner;
     private final OWLDataFactory factory;
     private final OWLOntologyManager manager;
     private final double beta;
     private final Map<Pair<OWLClassExpression, OWLClassExpression>, Double> accuracies;
     private final Map<Pair<Integer, OWLClassExpression>, Set<OWLClassExpression>> rhoTops;
     private OWLOntology ontology;
+    private OWLReasoner reasoner;
     private Set<OWLEquivalentClassesAxiom> axiomsToRemove;
     private AtomicInteger removeIdx;
 
@@ -56,6 +56,10 @@ public class SubsumptionLearningMinimalConcept implements MinimalConcept {
     public Optional<OWLClassExpression> getMinimalConcept(OWLClassExpression base) {
         if (useStarModule) {
             this.ontology = StarModuleExtractor.extractStarModule(actualOntology, base);
+
+            OWLReasonerFactory reasonerFactory = new ReasonerFactory();
+            this.reasoner = reasonerFactory.createReasoner(this.ontology);
+            reasoner.precomputeInferences(InferenceType.CLASS_HIERARCHY);
         }
         axiomsToRemove = new HashSet<>();
 
@@ -63,6 +67,11 @@ public class SubsumptionLearningMinimalConcept implements MinimalConcept {
 
         manager.removeAxioms(ontology, axiomsToRemove);
         ontology = actualOntology;
+        if (useStarModule) {
+            OWLReasonerFactory reasonerFactory = new ReasonerFactory();
+            this.reasoner = reasonerFactory.createReasoner(this.actualOntology);
+            reasoner.precomputeInferences(InferenceType.CLASS_HIERARCHY);
+        }
         axiomsToRemove = new HashSet<>();
         return ret;
     }
@@ -75,6 +84,7 @@ public class SubsumptionLearningMinimalConcept implements MinimalConcept {
 
         String baseIRI = "tempFormula#";
         OWLClass baseClass = factory.getOWLClass(IRI.create(baseIRI + removeIdx.getAndIncrement()));
+        Pair<OWLClass, OWLClassExpression> basePair =new Pair<>(baseClass, base);
         OWLEquivalentClassesAxiom baseAxiom = factory.getOWLEquivalentClassesAxiom(baseClass, base);
         axiomsToRemove.add(baseAxiom);
         manager.addAxiom(ontology, baseAxiom);
@@ -97,7 +107,6 @@ public class SubsumptionLearningMinimalConcept implements MinimalConcept {
                 continue;
             } else if (candidate.accuracy == Double.POSITIVE_INFINITY) {
                 retList.add(candidate.formula);
-                candidate.accuracy = Double.NEGATIVE_INFINITY;
                 maxSize = candidate.size;
                 continue;
             }
@@ -128,7 +137,7 @@ public class SubsumptionLearningMinimalConcept implements MinimalConcept {
             System.out.println("precomputed inferences");
 
             Set<SearchNode> newNodes = newClasses.stream()
-                    .map(pair -> new SearchNode(pair.second(), pair.second().accept(new ClassExpressionSizeVisitor()), candidate.n, accuracyCashed(baseClass, pair)))
+                    .map(pair -> new SearchNode(pair.second(), pair.second().accept(new ClassExpressionSizeVisitor()), candidate.n, accuracyCashed(basePair, pair)))
                     .collect(Collectors.toSet());
 
             nodes.addAll(newNodes);
@@ -271,16 +280,17 @@ public class SubsumptionLearningMinimalConcept implements MinimalConcept {
         return ret;
     }
 
-    private double accuracyCashed(OWLClass target, Pair<OWLClass, OWLClassExpression> found) {
-        return accuracies.computeIfAbsent(new Pair<>(target, found.second()),
-                k -> accuracy(target, found.first()));
+    private double accuracyCashed(Pair<OWLClass, OWLClassExpression> target, Pair<OWLClass, OWLClassExpression> found) {
+        return accuracies.computeIfAbsent(new Pair<>(target.second(), found.second()),
+                k -> accuracy(target.first(), found.first()));
     }
 
     private double accuracy(OWLClass target, OWLClass found) {
         // For now, I return posinf to indicate that either we have our value,
         // I might do this differently if needed for something,
         // But I otherwise do not see a reason to overcomplicate things.
-        if (reasoner.getEquivalentClasses(target).contains(found))
+
+        if (!Collections.disjoint(reasoner.getEquivalentClasses(target).getEntities(), reasoner.getEquivalentClasses(found).getEntities()))
             return Double.POSITIVE_INFINITY;
 
         // Here, we do not filter out the tempFormula# classes. In fact, keeping them around here
