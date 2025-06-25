@@ -14,5 +14,5 @@ trap cleanup SIGINT
 mvn clean package
 
 python3 sort_ontologies.py | while IFS= read -r filepath; do
-    timeout 10m nice -n 0 bash -c "$COMMAND $filepath" 2>&1 | tee -a "logs/output_$CURRENT_DATETIME).txt"
+    timeout 5h $COMMAND $filepath 2>&1 | tee -a "logs/output_$CURRENT_DATETIME.jsonl"
 done
