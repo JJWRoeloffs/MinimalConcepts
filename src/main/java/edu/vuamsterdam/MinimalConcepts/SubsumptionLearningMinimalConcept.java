@@ -95,8 +95,9 @@ public class SubsumptionLearningMinimalConcept implements MinimalConcept {
             } else if (candidate.size >= maxSize || candidate.n > maxSize) {
                 candidate.accuracy = Double.NEGATIVE_INFINITY;
                 continue;
-            } else if (reasoner.isEntailed(factory.getOWLEquivalentClassesAxiom(base, candidate.formula))) {
+            } else if (candidate.accuracy == Double.POSITIVE_INFINITY) {
                 retList.add(candidate.formula);
+                candidate.accuracy = Double.NEGATIVE_INFINITY;
                 maxSize = candidate.size;
                 continue;
             }
