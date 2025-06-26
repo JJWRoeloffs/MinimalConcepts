@@ -49,6 +49,7 @@ hs_err_pid*
 
 # Own logs
 logs/
+final_logs/
 
 # Downloaded stuff
 pool_sample/
