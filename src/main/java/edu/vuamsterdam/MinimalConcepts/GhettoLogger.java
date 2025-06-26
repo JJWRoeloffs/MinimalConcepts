@@ -29,4 +29,7 @@ public class GhettoLogger {
     public static void logHardCrashed(String filepath, String error) {
         log("HardCrashed", String.format("{\"filename\": \"%s\", \"error\": \"%s\"}", filepath, error));
     }
+    public static void logSize(String filepath, int sizeTBox, int nrMinimizable) {
+        log("Size", String.format("{\"filename\": \"%s\", \"sizeTBox\": %d, \"minimizable\": %d}", filepath, sizeTBox, nrMinimizable));
+    }
 }
