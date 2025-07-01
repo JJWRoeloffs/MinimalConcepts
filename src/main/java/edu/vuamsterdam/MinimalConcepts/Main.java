@@ -10,15 +10,16 @@ import java.util.*;
 public class Main {
     public static void main(String[] args) {
         String filepath = args[0];
+        String origFilepath = args[1];
         try {
-            processOntology(filepath);
+            processOntology(filepath, origFilepath);
         } catch (Throwable e) {
             GhettoLogger.logHardCrashed(filepath, e.toString());
         }
     }
 
-    public static void processOntology(String filepath) throws Exception {
-        GhettoLogger.logStart(filepath);
+    public static void processOntology(String filepath, String origFilepath) throws Exception {
+        GhettoLogger.logStart(origFilepath);
         OWLOntologyManager manager = OWLManager.createOWLOntologyManager();
         OWLOntology ontology = manager.loadOntologyFromOntologyDocument(new File(filepath));
 
@@ -45,7 +46,7 @@ public class Main {
             }
         }
         long durationMillis = System.currentTimeMillis() - startTime;
-        GhettoLogger.logFinish(filepath,  durationMillis, i);
+        GhettoLogger.logFinish(origFilepath,  durationMillis, i);
     }
 
     private static void minimizeExpression(OWLClassExpression expression, OWLOntology ontology) {

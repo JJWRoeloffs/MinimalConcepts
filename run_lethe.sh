@@ -14,5 +14,6 @@ trap cleanup SIGINT
 mvn clean package
 
 python3 sort_ontologies.py | while IFS= read -r filepath; do
-    timeout 5h $COMMAND $filepath $filepath 2>&1 | tee -a "logs/output_$CURRENT_DATETIME.jsonl"
+    java --add-opens java.base/java.lang=ALL-UNNAMED -cp ./LETHE/lethe-standalone-0.6/lethe-standalone-0.6.jar uk.ac.man.cs.lethe.internal.application.ForgettingConsoleApplication --owlFile $filepath --timeOut 60 --interpolate --sigSize 10
+    timeout 15m $COMMAND result.owl $filepath 2>&1 | tee -a "logs/output_LETHE_$CURRENT_DATETIME.jsonl"
 done
