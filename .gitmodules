@@ -1,3 +1,6 @@
 [submodule "pizza-ontology"]
 	path = pizza-ontology
 	url = https://github.com/owlcs/pizza-ontology.git
+[submodule "LETHE"]
+	path = LETHE
+	url = https://github.com/PKoopmann/LETHE-0.8
