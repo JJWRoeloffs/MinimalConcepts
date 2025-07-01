@@ -11,8 +11,9 @@ cleanup() {
 
 trap cleanup SIGINT
 
-mvn clean package
+# mvn clean package
 
 python3 sort_ontologies.py | while IFS= read -r filepath; do
-    timeout 5h $COMMAND $filepath 2>&1 | tee -a "logs/output_$CURRENT_DATETIME.jsonl"
+    java -jar -Xms1G -Xmx20G --add-opens java.base/java.lang=ALL-UNNAMED ./fame-wrapper/target/FameWrapper-1.0-SNAPSHOT.jar $filepath
+    timeout 1h $COMMAND FAME_ontology.owl 2>&1 | tee -a "logs/output_FAME_$CURRENT_DATETIME.jsonl"
 done
