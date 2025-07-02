@@ -24,7 +24,7 @@ public class GhettoLogger {
         log("Timeout", String.format("{\"expression\": \"%s\"}", expression));
     }
     public static void logCrashed(String expression, boolean bugged, boolean feasible) {
-        log("Crashed", String.format("{\"expression\": \"%s\", \"bugged\": %b, \"feasible\":, %b}", expression, bugged, feasible));
+        log("Crashed", String.format("{\"expression\": \"%s\", \"bugged\": %b, \"feasible\": %b}", expression, bugged, feasible));
     }
     public static void logHardCrashed(String filepath, String error) {
         log("HardCrashed", String.format("{\"filename\": \"%s\", \"error\": \"%s\"}", filepath, error));
